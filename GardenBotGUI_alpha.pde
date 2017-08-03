@@ -8,8 +8,6 @@ PVector lastMouseReleaseXY = new PVector(0,400); //mouse coordinates when releas
 PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
 
-ReactShape test_polygon;
-
 void setup(){
   size(800, 600, P3D);
   rectMode(CENTER);
@@ -22,19 +20,18 @@ void setup(){
   
   //bot init
   float pillarHeight = 200; //height of pillars in pixels
-  PVector[] pillars = new PVector[4]; //length of pillars must be >= 4
-  pillars[0] = new PVector(width/2,height/2,pillarHeight);
-  pillars[1] = new PVector(-width/2,height/2,pillarHeight);
-  pillars[2] = new PVector(-width/2,-height/2,pillarHeight);
-  pillars[3] = new PVector(width/2,-height/2,pillarHeight);
+  PVector[] pillars = new PVector[0]; //length of pillars must be >= 4
+  pillars = (PVector[]) append(pillars,new PVector(width/3,height/3,pillarHeight));
+  pillars = (PVector[]) append(pillars,new PVector(-width/3,height/2,pillarHeight));
+  pillars = (PVector[]) append(pillars,new PVector(-width/2,-height/2,pillarHeight));
+  pillars = (PVector[]) append(pillars,new PVector(width/2,-height/2,pillarHeight));
+  pillars = (PVector[]) append(pillars,new PVector(width/2,height/4,pillarHeight));
+  alignAccordingToFstEdge(pillars);
   myGardenBot = new GardenBot(pillars,255); //255 is the color of the main gardenBot
 
   //calibration initialization
   float[] initialLengthSet = myGardenBot.returnLinksMeasurements();
   myCalibrationData = new CalibrationData(initialLengthSet,myGardenBot.pod, pillarHeight);
-  
-  test_polygon = new ReactShape();
-  test_polygon.fillReactShape(pillars);
 }
 
 void draw(){
@@ -59,7 +56,6 @@ void draw(){
 
   //drawing part
   background(0);
-  test_polygon.drawShape(); //draw test polygon
   aButton.drawButton();  //draw button
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
   myCalibrationData.drawPoseSamples(); //draw samples poses

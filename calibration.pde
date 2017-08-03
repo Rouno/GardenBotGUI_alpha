@@ -6,7 +6,7 @@
 class CalibrationData{
   ArrayList<float[]> lengthSet = new ArrayList<float[]>(); //set of pillars lengths samples for calibration
   ArrayList<PVector> poseSet = new ArrayList<PVector>(); //set of pod positions correspondong to lengths samples
-  int maxSet = 20;
+  int maxSet = 40;
   int setCursor = 1;
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
   float minVariation = 400; //minimum length variation to add new sample to sets, in pixels
@@ -29,6 +29,7 @@ class CalibrationData{
     for(int i=0;i<n;i++){
       this.pillarsToCalibrate[i] = new PVector(initialLengths[i] * cos(i*tetha + tetha/2), initialLengths[i] * sin(i*tetha + tetha/2),z);
     }
+    alignAccordingToFstEdge(pillarsToCalibrate);
   }
   
   //add a new sample in the sample list only if new measurement has a relative change at least of minVariation and call optimizationStep for gradient descent
@@ -49,10 +50,12 @@ class CalibrationData{
   }
   
   float[] returnLinksMeasurements(){
-    float[] links = new float[this.pillarsToCalibrate.length];
-    for(int i = 0;i<4;i++){
+    int n = this.pillarsToCalibrate.length;
+    float[] links = new float[n];
+    for(int i = 0;i<n;i++){
       links[i]= this.pillarsToCalibrate[i].copy().sub(this.pod).mag();
     }
+    printArray(links);
     return links;
   }
 
@@ -221,6 +224,20 @@ PVector pvectorMean(PVector[] vector_array){
   }
   result = result.div(vector_array.length);
   return result;
+}
+
+void alignAccordingToFstEdge(PVector[] vector_to_align){
+  PVector Ex = new PVector(-1,0);
+  PVector axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
+  float angle = PVector.angleBetween(Ex, axis_to_align);
+  for(PVector vect : vector_to_align){
+    vect.rotate(angle);
+  }
+  PVector mean=pvectorMean(vector_to_align);
+  mean.z = 0;
+  for(PVector vect : vector_to_align){
+    vect.sub(mean);
+  }
 }
 
 float maxZcoordinates(PVector[] vector_array){
