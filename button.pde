@@ -40,3 +40,13 @@ class Button{
   }
 
 }
+
+//overRect is true if cursor on a 2D rectangle that lies on ground plane
+boolean overRect(float x, float y, float width, float height)  {
+  if (mouseOnGroundPlane.x >= x-width/2 && mouseOnGroundPlane.x <= x+width/2 && 
+      mouseOnGroundPlane.y >= y-height/2 && mouseOnGroundPlane.y <= y+height/2) {
+    return true;
+  } else {
+    return false;
+  }
+}

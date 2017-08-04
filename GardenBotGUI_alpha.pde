@@ -7,6 +7,8 @@ PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked 
 PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
 PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
+int nbPillars = 4;
+//PVector[] pillars = new PVector[nbPillars];
 
 void setup(){
   size(800, 600, P3D);
@@ -17,13 +19,20 @@ void setup(){
   //button init
   aButton = new Button(90/2 + width/2, 90/2 + height/2, 90);
   
-  //bot init
+  //bot init  
   PVector[] pillars = new PVector[0]; //length of pillars must be >= 4
-  pillars = (PVector[]) append(pillars,new PVector(width/3,height/3,h));
-  pillars = (PVector[]) append(pillars,new PVector(-width/3,height/2,h));
+  /*
+  pillars = (PVector[]) append(pillars,new PVector(width/2,height/2,h));
+  pillars = (PVector[]) append(pillars,new PVector(-width/2,height/2,h));
   pillars = (PVector[]) append(pillars,new PVector(-width/2,-height/2,h));
   pillars = (PVector[]) append(pillars,new PVector(width/2,-height/2,h));
-  pillars = (PVector[]) append(pillars,new PVector(width/2,height/4,h));
+  */
+  for(int i=0;i<nbPillars;i++){
+    pillars = (PVector[]) append(pillars,new PVector());
+    pillars[i] = PVector.fromAngle(2*i*PI/nbPillars);
+    pillars[i].mult(random(width));
+    pillars[i].add(new PVector(0,0,h));
+  }
   alignAccordingToFstEdge(pillars);
   myGardenBot = new GardenBot(pillars,255); //255 is the color of the main gardenBot
 
@@ -77,16 +86,5 @@ void mouseReleased(){
   //handle camera orbit resume after mouse release
   if(!myGardenBot.podGrabbed){
     lastMouseReleaseXY.sub(lastMouseClickedXY).add(mouseXY); 
-  }
-}
-
-
-//overRect is true if cursor on a 2D rectangle that lies on ground plane
-boolean overRect(float x, float y, float width, float height)  {
-  if (mouseOnGroundPlane.x >= x-width/2 && mouseOnGroundPlane.x <= x+width/2 && 
-      mouseOnGroundPlane.y >= y-height/2 && mouseOnGroundPlane.y <= y+height/2) {
-    return true;
-  } else {
-    return false;
   }
 }

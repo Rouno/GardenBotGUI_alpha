@@ -49,8 +49,10 @@ class GardenBot{
     
     //draw x and y cursor axis
     stroke(150);
-    line(this.pod.x,height/2,this.pod.x,-height/2);
-    line(width/2,this.pod.y,-width/2,this.pod.y);
+    
+    PVector[] podXYbound = footprint.getUpDownLeftRightbounds(this.pod);
+    line(podXYbound[0].x,podXYbound[0].y,podXYbound[2].x,podXYbound[2].y);
+    line(podXYbound[1].x,podXYbound[1].y,podXYbound[3].x,podXYbound[3].y);
       
     //draw grabber
     this.grabber.x = (int) this.pod.x;
@@ -130,6 +132,25 @@ class ReactShape {
       dicotomy_mag /= 2;
     }
     return pt;
+  }
+  
+  PVector[] getUpDownLeftRightbounds(PVector point){
+    PVector[] result=new PVector[4]; //4 vectors : 4 boundaries along +x +y -x -y
+    PVector unitVector = new PVector(1,0);
+    for(int i=0;i<4;i++){
+      float dicotomy_mag = max(pg.width/2,pg.height/2);
+      result[i] = point.copy();
+      while(dicotomy_mag > 1){  //while pixel diff between point and result > 1 pixel
+        if(overShape(result[i])){   
+          result[i].add(unitVector.copy().mult(dicotomy_mag));
+        }else{
+          result[i].sub(unitVector.copy().mult(dicotomy_mag));
+        }
+        dicotomy_mag /= 2;
+      }
+      unitVector.rotate(HALF_PI);   
+    }
+    return result;
   }
    
 }

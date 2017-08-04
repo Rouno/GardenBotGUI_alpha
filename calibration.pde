@@ -7,18 +7,19 @@ class CalibrationData{
   float[][] lengthSet; //set of pillars lengths samples for calibration
   PVector[] poseSet; //set of pod positions correspondong to lengths samples
   int maxSet = 40; //maximum number of samples for gradient descent 
-  int setCursor = 1; //ugly cursor for lengthset and poseSet
+  int setCursor = 0; //cursor for lengthset and poseSet ring buffer
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
   float minVariation = 400; //minimum length variation to add new sample to sets, in pixels
   float epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
   float alpha = 0.1; //rate of gradient descent convergence
   int nbGradientDescentStep = 10; //number of gradient descent steps for each optimization step
-  PVector pod = new PVector();
+  PVector pod = new PVector(); //coordinates of predicted pod position from calibration dataset
   
   color calibrationDataColor = color(0,100,220); //color of calibrated data drawing
   
   CalibrationData(float[] initialLinks, PVector initialPod, float z){
     int n = initialLinks.length;
+    this.minVariation = maxFloatArray(initialLinks)/5;
     this.lengthSet = new float[this.maxSet][n];
     this.poseSet = new PVector[this.maxSet];
     for(int i=0;i<this.maxSet;i++){
@@ -35,19 +36,21 @@ class CalibrationData{
     }
     alignAccordingToFstEdge(pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
   }
+
   
   //add a new sample links measures in the sample list
-  void addSample(float[] length_measures, PVector pose){   
-    this.pod = podFromLinksMeasures(length_measures,this.pillarsToCalibrate);
-    
-    //only add sample if links measures difference from last sample is beyond a minimum amount
-    int index = this.setCursor % this.maxSet;
-    float linksVariation=sumFloatArray(absDiffArray(length_measures,this.lengthSet[index]));
-    if(linksVariation > this.minVariation){ 
-      this.lengthSet[index] = length_measures;
-      this.poseSet[index] = pose.copy();    
+  void addSample(float[] length_measures, PVector pose){
+    int last_cursor = (this.setCursor+this.maxSet-1)%this.maxSet;
+    PVector pod_eval = podFromLinksMeasures(this.lengthSet[last_cursor], this.pillarsToCalibrate);
+    this.pod = podFromLinksMeasures(length_measures, this.pillarsToCalibrate);
+    //only add sample if pod differes from last pod by at least minVariation amount
+    if( pod_eval.sub(this.pod).mag() > this.minVariation){ 
+      this.lengthSet[this.setCursor] = length_measures;
+      this.poseSet[this.setCursor] = pose.copy();
       this.setCursor +=1;
+      this.setCursor %= this.maxSet;
     }
+    
   }
   
   //returns predicted measurements from current recorded data
@@ -66,7 +69,6 @@ class CalibrationData{
     PVector[] myPillars = this.pillarsToCalibrate;
     int n=this.setCursor % this.maxSet+1;
     int m=this.pillarsToCalibrate.length; //length must be >= 4
-    
     for(int i=0; i<n;i++){ //compute error over all samples
       PVector podPrediction = podFromLinksMeasures(this.lengthSet[i],myPillars);
       for(int j=0; j<m;j++){

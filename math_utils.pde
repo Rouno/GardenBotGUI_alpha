@@ -115,3 +115,11 @@ float maxHeight(PVector[] vector_array){
   }
   return 2*max;
 }
+
+float maxFloatArray(float[] float_array){
+  float result=0;
+  for(float afloat : float_array){
+    if(afloat>result) result=afloat;
+  }
+  return result;
+}
