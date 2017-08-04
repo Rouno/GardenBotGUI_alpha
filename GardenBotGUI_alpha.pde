@@ -4,14 +4,13 @@ CalibrationData myCalibrationData; //store all calibration data sets, length and
 
 PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
 PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
-PVector lastMouseReleaseXY = new PVector(0,400); //mouse coordinates when released for the last time
+PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
 PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
 
 void setup(){
   size(800, 600, P3D);
   rectMode(CENTER);
-  
   //camera initialization
   camera_init();
   
@@ -19,36 +18,28 @@ void setup(){
   aButton = new Button(90/2 + width/2, 90/2 + height/2, 90);
   
   //bot init
-  float pillarHeight = 200; //height of pillars in pixels
   PVector[] pillars = new PVector[0]; //length of pillars must be >= 4
-  pillars = (PVector[]) append(pillars,new PVector(width/3,height/3,pillarHeight));
-  pillars = (PVector[]) append(pillars,new PVector(-width/3,height/2,pillarHeight));
-  pillars = (PVector[]) append(pillars,new PVector(-width/2,-height/2,pillarHeight));
-  pillars = (PVector[]) append(pillars,new PVector(width/2,-height/2,pillarHeight));
-  pillars = (PVector[]) append(pillars,new PVector(width/2,height/4,pillarHeight));
+  pillars = (PVector[]) append(pillars,new PVector(width/3,height/3,h));
+  pillars = (PVector[]) append(pillars,new PVector(-width/3,height/2,h));
+  pillars = (PVector[]) append(pillars,new PVector(-width/2,-height/2,h));
+  pillars = (PVector[]) append(pillars,new PVector(width/2,-height/2,h));
+  pillars = (PVector[]) append(pillars,new PVector(width/2,height/4,h));
   alignAccordingToFstEdge(pillars);
   myGardenBot = new GardenBot(pillars,255); //255 is the color of the main gardenBot
 
   //calibration initialization
   float[] initialLengthSet = myGardenBot.returnLinksMeasurements();
-  myCalibrationData = new CalibrationData(initialLengthSet,myGardenBot.pod, pillarHeight);
+  myCalibrationData = new CalibrationData(initialLengthSet,myGardenBot.pod, h);
 }
 
 void draw(){
   mouseXY.set(mouseX,mouseY); //store current mouse coordinates in a vector 
   mouseOnGroundPlane.set(worldCoords(mouseXY.x, mouseXY.y, 0)); //get 3D coordinates on ground plane which correspond to the 2D position of the mouse on the screen
-  
+
   //perform mouse orbiting motion if mousePressed and pod not grabbed by user
   if(mousePressed && !myGardenBot.podGrabbed){
     camera_orbit();
   }
-  
-  //if pod is grabbed, update pod location but do not orbit camera
-  if(mousePressed && myGardenBot.podGrabbed){
-    myGardenBot.pod.x = min(max(mouseOnGroundPlane.x,-width/2),width/2);     //keep x value inside rectangle plane
-    myGardenBot.pod.y = min(max(mouseOnGroundPlane.y, -height/2),height/2);  //keep y value inside rectangle plane
-  }
-  myGardenBot.pod.z = h; //z pod coordinate can be updated when user doesn't grab pod 
   
   //add sample to dataSet and make an optimization step
   myCalibrationData.addSample(myGardenBot.returnLinksMeasurements(),myGardenBot.pod);
@@ -58,9 +49,7 @@ void draw(){
   background(0);
   aButton.drawButton();  //draw button
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrationData.drawPoseSamples(); //draw samples poses
-  myCalibrationData.drawPillarsToCalibrate(); //draw current calibration steps
-  myCalibrationData.drawPod();
+  myCalibrationData.drawData(); //draw samples poses
 
 }
 
