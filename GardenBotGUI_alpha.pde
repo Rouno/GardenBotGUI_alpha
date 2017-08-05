@@ -1,44 +1,37 @@
 Button aButton; //GUI test button
 GardenBot myGardenBot; // GardenBot object
-CalibrationData myCalibrationData; //store all calibration data sets, length and pod poses
+Calibrator myCalibrator; //store all calibration data sets, length and pod poses
 
 PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
 PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
 PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
 PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
-int nbPillars = 4;
-//PVector[] pillars = new PVector[nbPillars];
+float grid_size = 5000; //gridsize 1px = 1mm
+int nbPillars = 6;
+
+PVector orbitAngle = new PVector(0,0);
+float orbitRadius, lastOrbitRadius;
+boolean mouseWheelMove = false;
 
 void setup(){
   size(800, 600, P3D);
   rectMode(CENTER);
+  
+  orbitRadius = width;
+  lastOrbitRadius = orbitRadius;
+  
   //camera initialization
   camera_init();
   
-  //button init
-  aButton = new Button(90/2 + width/2, 90/2 + height/2, 90);
-  
   //bot init  
-  PVector[] pillars = new PVector[0]; //length of pillars must be >= 4
-  /*
-  pillars = (PVector[]) append(pillars,new PVector(width/2,height/2,h));
-  pillars = (PVector[]) append(pillars,new PVector(-width/2,height/2,h));
-  pillars = (PVector[]) append(pillars,new PVector(-width/2,-height/2,h));
-  pillars = (PVector[]) append(pillars,new PVector(width/2,-height/2,h));
-  */
-  for(int i=0;i<nbPillars;i++){
-    pillars = (PVector[]) append(pillars,new PVector());
-    pillars[i] = PVector.fromAngle(2*i*PI/nbPillars);
-    pillars[i].mult(random(width));
-    pillars[i].add(new PVector(0,0,h));
-  }
+  PVector[] pillars = randomVect(nbPillars, h, width, 0.9) ; 
   alignAccordingToFstEdge(pillars);
-  myGardenBot = new GardenBot(pillars,255); //255 is the color of the main gardenBot
+  myGardenBot = new GardenBot(pillars); //255 is the color of the main gardenBot
 
   //calibration initialization
   float[] initialLengthSet = myGardenBot.returnLinksMeasurements();
-  myCalibrationData = new CalibrationData(initialLengthSet,myGardenBot.pod, h);
+  myCalibrator = new Calibrator(initialLengthSet,myGardenBot.pod, h);
 }
 
 void draw(){
@@ -46,19 +39,26 @@ void draw(){
   mouseOnGroundPlane.set(worldCoords(mouseXY.x, mouseXY.y, 0)); //get 3D coordinates on ground plane which correspond to the 2D position of the mouse on the screen
 
   //perform mouse orbiting motion if mousePressed and pod not grabbed by user
-  if(mousePressed && !myGardenBot.podGrabbed){
-    camera_orbit();
-  }
+  if(orbitRadius != lastOrbitRadius) camera_orbit(orbitRadius, orbitAngle);
   
-  //add sample to dataSet and make an optimization step
-  myCalibrationData.addSample(myGardenBot.returnLinksMeasurements(),myGardenBot.pod);
-  myCalibrationData.optimizationStep();
+  //orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
+  if(mousePressed && !myGardenBot.podGrabbed){
+    orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
+    camera_orbit(orbitRadius, orbitAngle);
+  }
+  /*
+  //add sample if min distance criteria and optimize
+  if(myCalibrator.isRunning.onoff){
+    myCalibrator.addSample(myGardenBot.returnLinksMeasurements(),myGardenBot.pod);
+    myCalibrator.optimizationStep();
+  }*/
+  
 
   //drawing part
   background(0);
-  aButton.drawButton();  //draw button
+  drawGrid();
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrationData.drawData(); //draw samples poses
+  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements()); //draw samples poses
 
 }
 
@@ -70,13 +70,16 @@ void keyPressed(){
   if(keyCode == DOWN){
     h-=10;
   }
+  if(key == ' '){
+    myCalibrator.reset();
+  }
 }
 
 void mousePressed(){
   lastMouseClickedXY = mouseXY.copy();
   
   //update button state
-  aButton.stateUpdate();
+  myCalibrator.isRunning.stateUpdate();
   
   //update grab state if pod is grabbed by user
   myGardenBot.grabingUpdate();
@@ -86,5 +89,19 @@ void mouseReleased(){
   //handle camera orbit resume after mouse release
   if(!myGardenBot.podGrabbed){
     lastMouseReleaseXY.sub(lastMouseClickedXY).add(mouseXY); 
+  }
+}
+
+void mouseWheel(MouseEvent event) {
+  int e=event.getCount();
+  orbitRadius -= e;
+}
+
+void drawGrid(){
+  float inBetween = 100;
+  stroke(50);
+  for(int i=-(int)grid_size/2;i<(int)grid_size/2;i+=inBetween){
+    line(i,grid_size/2,i,-grid_size/2);
+    line(grid_size/2,i,-grid_size/2,i);
   }
 }

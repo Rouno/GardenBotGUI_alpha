@@ -1,7 +1,7 @@
 /* 
  * Set variables for camera control 
  */
- 
+
 PGraphicsOpenGL gl;
 PMatrix3D S = new PMatrix3D(); //camera space to screen space matrix
 PMatrix3D P = new PMatrix3D(); //projection of model to camera
@@ -27,7 +27,7 @@ void camera_init(){
   gl = (PGraphicsOpenGL) this.g;
   
   //set camera position
-  camera(0, 0, 800, 0, 0, 0, 0, 1, 0);
+  camera(0, 0, width, 0, 0, 0, 0, 1, 0);
   
   //get current camera projection and inverse
   P.set(gl.projection);
@@ -36,12 +36,10 @@ void camera_init(){
 }
 
 //"lastMouseReleaseXY.x + mouseX - lastMouseClickedXYX" is used to preserve last cursor position while mouse was dragged 
-void camera_orbit(){
-  PVector orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-  float orbitRadius= 800;
-  float xpos = cos(radians(orbitAngle.x - width/2)/10)*orbitRadius;
-  float ypos = sin(radians(orbitAngle.x - width/2)/10)*orbitRadius;
-  float zpos = orbitAngle.y;
+void camera_orbit(float my_orbitRadius,PVector my_orbitAngle){
+  float xpos = cos(radians(my_orbitAngle.x - width/2)/10)*my_orbitRadius;
+  float ypos = sin(radians(my_orbitAngle.x - width/2)/10)*my_orbitRadius;
+  float zpos = my_orbitRadius / width * my_orbitAngle.y;
   camera(xpos, ypos, zpos, 0, 0, 0, 0, 0, -1);
 }
 

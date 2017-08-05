@@ -3,22 +3,23 @@
   */
 
 class GardenBot{
-  color drawingColor = color(0);
+  color drawingColor = 255;
   int nbPillars; //set number of pillars composing the gardenbot
-  int podSize = 40; //set pod size for circle shape and projected square
+  int podSize; //set pod size for circle shape and projected square
   PVector[] pillars; // = new PVector[nbPillars]; //store each pillar's x y coordinates and height
   ReactShape footprint;
   PVector pod = new PVector(0,0,0); //store pod's x y z coordinates
-  Button grabber = new Button(0,0,podSize); //a button used to grab the pod on ground plane
+  Button grabber; //a button used to grab the pod on ground plane
   
   boolean podGrabbed = false; //true if pod projection on ground plane is grabbed by user
   
-  GardenBot(PVector[] pillarsCoordinates, color myColor){
-      this.drawingColor = myColor;
-      this.nbPillars = pillarsCoordinates.length;
-      this.pillars = new PVector[this.nbPillars];
-      arrayCopy(pillarsCoordinates,this.pillars);
-      footprint = new ReactShape(pillars);
+  GardenBot(PVector[] pillarsCoordinates){
+    this.podSize = 40;//(int) (40 * maxWidth(pillarsCoordinates) / width);
+    this.grabber = new Button(0,0,podSize);
+    this.nbPillars = pillarsCoordinates.length;
+    this.pillars = new PVector[this.nbPillars];
+    arrayCopy(pillarsCoordinates,this.pillars);
+    footprint = new ReactShape(pillars);
   }
   
   void drawBot(){

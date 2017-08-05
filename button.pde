@@ -6,7 +6,7 @@ class Button{
   int x,y;  //button center coordinates
   int size;  //button size
   color rectColor, rectHighlight, rectClicked;  //color states
-  boolean clicked;
+  boolean onoff = true;
   
   Button(int tmp_x, int tmp_y, int tmp_size) {
     this.x = tmp_x;
@@ -15,11 +15,11 @@ class Button{
     this.rectColor = 100;
     this.rectHighlight = 150;
     this.rectClicked = 255;
-    this.clicked = false;
+    this.onoff = true;
   }
   
   void drawButton(){
-    if (this.clicked){
+    if (this.onoff){
       fill(this.rectClicked);
     } else {
       fill(this.rectColor);
@@ -34,8 +34,8 @@ class Button{
   }
   
   void stateUpdate(){
-    if (overRect(this.x, this.y, this.size, this.size)){
-      this.clicked = !this.clicked;
+    if (overRect(this.x, this.y, this.size, this.size)){ 
+      this.onoff = !this.onoff;
     }
   }
 

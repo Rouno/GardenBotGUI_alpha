@@ -123,3 +123,15 @@ float maxFloatArray(float[] float_array){
   }
   return result;
 }
+
+//return vector array of n random vectors (constant height z, radius: mean & std) sorted by angle 
+PVector[] randomVect(int n, float z, float mean, float std_dev){
+  PVector[] vector_array = new PVector[0]; //length of pillars must be >= 4
+  for(int i=0;i<nbPillars;i++){
+    vector_array = (PVector[]) append(vector_array,new PVector());
+    vector_array[i] = PVector.fromAngle(2*i*PI/n);
+    vector_array[i].mult(random(mean*std_dev)+mean*(1-std_dev));
+    vector_array[i].add(new PVector(0,0,z));
+  }
+  return vector_array;
+}

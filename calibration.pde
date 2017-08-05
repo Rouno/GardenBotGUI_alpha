@@ -3,23 +3,31 @@
  * with gradient descent method
  */
  
-class CalibrationData{
+class Calibrator{
+  Button isRunning; //gradient descent onoff control button
+  float[] initValues; //store initial measurement values for reset function
+  float init_height;
   float[][] lengthSet; //set of pillars lengths samples for calibration
   PVector[] poseSet; //set of pod positions correspondong to lengths samples
   int maxSet = 40; //maximum number of samples for gradient descent 
   int setCursor = 0; //cursor for lengthset and poseSet ring buffer
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
   float minVariation = 400; //minimum length variation to add new sample to sets, in pixels
-  float epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
+  double epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
   float alpha = 0.1; //rate of gradient descent convergence
   int nbGradientDescentStep = 10; //number of gradient descent steps for each optimization step
   PVector pod = new PVector(); //coordinates of predicted pod position from calibration dataset
   
-  color calibrationDataColor = color(0,100,220); //color of calibrated data drawing
+  color CalibratorColor = color(0,100,220); //color of calibrated data drawing
   
-  CalibrationData(float[] initialLinks, PVector initialPod, float z){
+  Calibrator(float[] initialLinks, PVector initialPod, float z){
+    //button init
+    isRunning = new Button(90/2 + width/2, 90/2 + height/2, 90);
+    this.init_height = z;
     int n = initialLinks.length;
-    this.minVariation = maxFloatArray(initialLinks)/5;
+    this.initValues = new float[n];
+    arrayCopy(initialLinks,this.initValues);
+    this.minVariation = maxFloatArray(initialLinks)/4;
     this.lengthSet = new float[this.maxSet][n];
     this.poseSet = new PVector[this.maxSet];
     for(int i=0;i<this.maxSet;i++){
@@ -42,7 +50,6 @@ class CalibrationData{
   void addSample(float[] length_measures, PVector pose){
     int last_cursor = (this.setCursor+this.maxSet-1)%this.maxSet;
     PVector pod_eval = podFromLinksMeasures(this.lengthSet[last_cursor], this.pillarsToCalibrate);
-    this.pod = podFromLinksMeasures(length_measures, this.pillarsToCalibrate);
     //only add sample if pod differes from last pod by at least minVariation amount
     if( pod_eval.sub(this.pod).mag() > this.minVariation){ 
       this.lengthSet[this.setCursor] = length_measures;
@@ -64,8 +71,8 @@ class CalibrationData{
     return links;
   }
 
-  float costFunction(){
-    float error=0;
+  double costFunction(){
+    double error=0;
     PVector[] myPillars = this.pillarsToCalibrate;
     int n=this.setCursor % this.maxSet+1;
     int m=this.pillarsToCalibrate.length; //length must be >= 4
@@ -84,12 +91,12 @@ class CalibrationData{
   }
   
   PVector[] costFunctionGradient(){
-    float fxyz = this.costFunction(); 
+    double fxyz = this.costFunction(); 
     PVector[] gradient = new PVector[0];
-    
+    println("cost criteria : " +fxyz);
     //compute partial derivatives for each pillar
     for(PVector vect : this.pillarsToCalibrate){
-      float dfx,dfy,dfz;
+      double dfx,dfy,dfz;
       vect.x += epsilon;
       dfx = (this.costFunction() - fxyz)/this.epsilon;
       vect.x -= epsilon;
@@ -97,7 +104,7 @@ class CalibrationData{
       dfy = (this.costFunction() - fxyz)/this.epsilon;
       vect.y -= epsilon;
       dfz = 0 ;  //(this.costFunction() - fxyz)/this.epsilon; assume that all pillars are at the same height
-      gradient = (PVector[]) append(gradient, new PVector(dfx,dfy,dfz));
+      gradient = (PVector[]) append(gradient, new PVector((float) dfx,(float) dfy,(float) dfz));
     }
     return gradient;
   }
@@ -124,23 +131,44 @@ class CalibrationData{
     }
   }
 
-  void drawData(){
-    //draw ground truth pod poses used to record links measures
-    stroke(this.calibrationDataColor);
-    strokeWeight(5);
-    for(PVector pose : this.poseSet){
-      point(pose.x,pose.y,pose.z);
+  void reset(){
+    int n = this.initValues.length;
+    for(int i=0;i<this.maxSet;i++){
+      this.lengthSet[i] = this.initValues;
+      this.poseSet[i] = this.pod.copy();
     }
-    strokeWeight(1);
+    float tetha = TWO_PI / n;
+    for(int i=0;i<n;i++){
+      this.pillarsToCalibrate[i] = new PVector(this.initValues[i] * cos(i*tetha + tetha/2), this.initValues[i] * sin(i*tetha + tetha/2),this.init_height);
+    }
+    alignAccordingToFstEdge(pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
+
+  }
   
-    //draw pod
-    stroke(this.calibrationDataColor);
-    strokeWeight(10);
-    point(this.pod.x,this.pod.y,this.pod.z);
-    strokeWeight(1);
+  void updateCalibrator(float[] links){
+    //update pod predicted location
+    this.pod = podFromLinksMeasures(links, this.pillarsToCalibrate);
+    
+    //draw stuff only if calibrator is running 
+    if(this.isRunning.onoff){
+      myCalibrator.addSample(links,this.pod);
+      myCalibrator.optimizationStep();
+      //draw ground truth pod poses used to record links measures
+      stroke(this.CalibratorColor);
+      strokeWeight(5);
+      for(PVector pose : this.poseSet){
+        point(pose.x,pose.y,pose.z);
+      }
+      //draw pod
+      strokeWeight(1);
+      stroke(this.CalibratorColor);
+      strokeWeight(10);
+      point(this.pod.x,this.pod.y,this.pod.z);
+      strokeWeight(1);
+    }
  
     //draw pillars under calibration
-    stroke(this.calibrationDataColor);
+    stroke(this.CalibratorColor);
     PVector[] pillars=this.pillarsToCalibrate;
     int n = pillars.length;
     for(int i=0;i<n;i++){
@@ -148,8 +176,11 @@ class CalibrationData{
       strokeWeight(3);
       line(pillars[i].x,pillars[i].y,pillars[i].z,pillars[i].x,pillars[i].y,0); 
       strokeWeight(1);
-      line(pillars[i].x,pillars[i].y,pillars[i].z,this.pod.x,this.pod.y,this.pod.z);
+      if(this.isRunning.onoff) line(pillars[i].x,pillars[i].y,pillars[i].z,this.pod.x,this.pod.y,this.pod.z); //lines between pillars and pod
     }
+    
+    //draw calibrator button
+    this.isRunning.drawButton();
   }
  
 }
