@@ -9,6 +9,7 @@ class GardenBot{
   PVector[] pillars; // = new PVector[nbPillars]; //store each pillar's x y coordinates and height
   ReactShape footprint;
   PVector pod = new PVector(0,0,0); //store pod's x y z coordinates
+  PVector current_pod = new PVector(0,0,0); //store current pod position
   Button grabber; //a button used to grab the pod on ground plane
   
   boolean podGrabbed = false; //true if pod projection on ground plane is grabbed by user
@@ -48,6 +49,12 @@ class GardenBot{
     ellipse(this.pod.x, this.pod.y, this.podSize, this.podSize);
     translate(0, 0, -this.pod.z);
     
+    //draw current pod
+    goToXYZ();
+    translate(0, 0, this.current_pod.z);
+    ellipse(this.current_pod.x, this.current_pod.y, this.podSize, this.podSize);
+    translate(0, 0, -this.current_pod.z);
+    
     //draw x and y cursor axis
     stroke(150);
     
@@ -69,14 +76,20 @@ class GardenBot{
     }
   }
   
-  float[] returnLinksMeasurements(){
+  float[] returnLinksMeasurements(PVector apod){
     float[] links = new float[nbPillars];
     for(int i = 0;i<nbPillars;i++){
-      links[i]= this.pillars[i].copy().sub(this.pod).mag();
+      links[i]= this.pillars[i].copy().sub(apod).mag();
     }
     return links;
   }
   
+  void goToXYZ(){
+    PVector Egoal = this.pod.copy().sub(this.current_pod);
+    float p = 10; // error proportional constant
+    this.current_pod.add(Egoal.mult(1/p));
+    printArray(returnLinksMeasurements(this.current_pod));
+  }
 }
 
 //class made of any custom shape to know if a point is inside the shape

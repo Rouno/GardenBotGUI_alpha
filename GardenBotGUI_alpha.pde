@@ -1,4 +1,3 @@
-Button aButton; //GUI test button
 GardenBot myGardenBot; // GardenBot object
 Calibrator myCalibrator; //store all calibration data sets, length and pod poses
 
@@ -8,7 +7,7 @@ PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when rel
 PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
 float grid_size = 5000; //gridsize 1px = 1mm
-int nbPillars = 6;
+int nbPillars = 4;
 
 PVector orbitAngle = new PVector(0,0);
 float orbitRadius, lastOrbitRadius;
@@ -25,12 +24,12 @@ void setup(){
   camera_init();
   
   //bot init  
-  PVector[] pillars = randomVect(nbPillars, h, width, 0.9) ; 
+  PVector[] pillars = randomVect(nbPillars, h, width, 0.5) ; 
   alignAccordingToFstEdge(pillars);
   myGardenBot = new GardenBot(pillars); //255 is the color of the main gardenBot
 
   //calibration initialization
-  float[] initialLengthSet = myGardenBot.returnLinksMeasurements();
+  float[] initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
   myCalibrator = new Calibrator(initialLengthSet,myGardenBot.pod, h);
 }
 
@@ -46,19 +45,12 @@ void draw(){
     orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
     camera_orbit(orbitRadius, orbitAngle);
   }
-  /*
-  //add sample if min distance criteria and optimize
-  if(myCalibrator.isRunning.onoff){
-    myCalibrator.addSample(myGardenBot.returnLinksMeasurements(),myGardenBot.pod);
-    myCalibrator.optimizationStep();
-  }*/
   
-
   //drawing part
   background(0);
   drawGrid();
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements()); //draw samples poses
+  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod),myGardenBot.pod); //draw samples poses
 
 }
 
@@ -94,7 +86,7 @@ void mouseReleased(){
 
 void mouseWheel(MouseEvent event) {
   int e=event.getCount();
-  orbitRadius -= e;
+  orbitRadius += e;
 }
 
 void drawGrid(){
