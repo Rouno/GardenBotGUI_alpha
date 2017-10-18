@@ -17,7 +17,8 @@ void serialEvent(Serial myPort) {
     if (inByte == 'A') { 
       myPort.clear();          // clear the serial port buffer
       firstContact = true;     // you've had first contact from the microcontroller
-      //myPort.write('A');       // ask for more
+      text("Received A !!! :  ", +inByte, 10, 130);
+      myPort.write('A');       // ask for more
     } 
   } else {
     // Add the latest byte from the serial port to array:

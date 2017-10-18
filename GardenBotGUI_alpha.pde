@@ -1,32 +1,26 @@
 GardenBot myGardenBot; // GardenBot object
 Calibrator myCalibrator; //store all calibration data sets, length and pod poses
+CameraControlManager myCameraControls;
 
-PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
-PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
-PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
-PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 float h = 200; //height in z of robot pod, controlled with up & down keys
 float grid_size = 5000; //gridsize 1px = 1mm
 int nbPillars = 4;
 
-PVector orbitAngle = new PVector(0,0);
-float orbitRadius, lastOrbitRadius;
+
 boolean mouseWheelMove = false;
 
 void setup(){
   size(800, 600, P3D);
   rectMode(CENTER);
   
-  orbitRadius = width;
-  lastOrbitRadius = orbitRadius;
-  
   //camera initialization
-  camera_init();
+  myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, width);
+  //camera_init();
   
   //bot init  
   PVector[] pillars = randomVect(nbPillars, h, width, 0.5) ; 
   alignAccordingToFstEdge(pillars);
-  myGardenBot = new GardenBot(pillars); //255 is the color of the main gardenBot
+  myGardenBot = new GardenBot(pillars, h); //255 is the color of the main gardenBot
 
   //calibration initialization
   float[] initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
@@ -34,17 +28,16 @@ void setup(){
 }
 
 void draw(){
-  mouseXY.set(mouseX,mouseY); //store current mouse coordinates in a vector 
-  mouseOnGroundPlane.set(worldCoords(mouseXY.x, mouseXY.y, 0)); //get 3D coordinates on ground plane which correspond to the 2D position of the mouse on the screen
-
-  //perform mouse orbiting motion if mousePressed and pod not grabbed by user
-  if(orbitRadius != lastOrbitRadius) camera_orbit(orbitRadius, orbitAngle);
   
-  //orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-  if(mousePressed && !myGardenBot.podGrabbed){
-    orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-    camera_orbit(orbitRadius, orbitAngle);
+  myCameraControls.update_mouse();
+  if(mousePressed){
+    if(myGardenBot.podGrabbed){
+      myGardenBot.update_pod_location(myCameraControls.mouseOnGroundPlane);
+    }else{
+      myCameraControls.update_orbit_angle();
+    }
   }
+  myCameraControls.update_camera();
   
   //drawing part
   background(0);
@@ -57,10 +50,10 @@ void draw(){
 
 void keyPressed(){
   if(keyCode == UP){
-    h+=10;
+    myGardenBot.pod.z +=10;
   }
   if(keyCode == DOWN){
-    h-=10;
+    myGardenBot.pod.z -=10;
   }
   if(key == ' '){
     myCalibrator.reset();
@@ -68,25 +61,29 @@ void keyPressed(){
 }
 
 void mousePressed(){
-  lastMouseClickedXY = mouseXY.copy();
+  myCameraControls.lastMouseClickedXY = myCameraControls.mouseXY.copy();
   
   //update button state
   myCalibrator.isRunning.stateUpdate();
   
   //update grab state if pod is grabbed by user
-  myGardenBot.grabingUpdate();
+  if(myGardenBot.isMouseOverGrabber()){
+    myGardenBot.podGrabbed =true;
+  }
 }
 
 void mouseReleased(){
   //handle camera orbit resume after mouse release
   if(!myGardenBot.podGrabbed){
-    lastMouseReleaseXY.sub(lastMouseClickedXY).add(mouseXY); 
+    myCameraControls.lastMouseReleaseXY.sub(myCameraControls.lastMouseClickedXY).add(myCameraControls.mouseXY); 
+  }else{
+    myGardenBot.podGrabbed = false;
   }
 }
 
 void mouseWheel(MouseEvent event) {
   int e=event.getCount();
-  orbitRadius += e;
+  myCameraControls.orbitRadius += e;
 }
 
 void drawGrid(){
