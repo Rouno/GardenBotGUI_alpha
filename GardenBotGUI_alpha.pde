@@ -10,6 +10,9 @@ int nbPillars = 4;
 boolean mouseWheelMove = false;
 
 void setup(){
+  //init serial port
+  setupSerial();
+  
   size(800, 600, P3D);
   rectMode(CENTER);
   
@@ -44,7 +47,6 @@ void draw(){
   drawGrid();
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
   myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod),myGardenBot.pod); //draw samples poses
-
 }
 
 
