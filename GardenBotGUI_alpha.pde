@@ -11,14 +11,17 @@ boolean mouseWheelMove = false;
 
 void setup(){
   //init serial port
-  setupSerial();
+  try{
+    setupSerial();
+  }catch (Exception e){
+    e.printStackTrace();
+  }
   
   size(800, 600, P3D);
   rectMode(CENTER);
   
   //camera initialization
   myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, width);
-  //camera_init();
   
   //bot init  
   PVector[] pillars = randomVect(nbPillars, h, width, 0.5) ; 
@@ -27,7 +30,7 @@ void setup(){
 
   //calibration initialization
   float[] initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
-  myCalibrator = new Calibrator(initialLengthSet,myGardenBot.pod, h);
+  myCalibrator = new Calibrator(initialLengthSet, h);
 }
 
 void draw(){
@@ -46,7 +49,7 @@ void draw(){
   background(0);
   drawGrid();
   myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod),myGardenBot.pod); //draw samples poses
+  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod)); //draw samples poses
 }
 
 

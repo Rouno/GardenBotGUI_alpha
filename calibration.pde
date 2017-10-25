@@ -7,10 +7,10 @@ class Calibrator{
   Button isRunning; //gradient descent onoff control button
   float[] initValues; //store initial measurement values for reset function
   float init_height;
-  float[][] lengthSet; //set of pillars lengths samples for calibration
-  PVector[] poseSet; //set of pod positions correspondong to lengths samples
+  float[][] cableLengthSet; //set of pillars lengths samples for calibration
+  PVector[] podPoseSet; //set of pod positions correspondong to lengths samples
   int maxSet = 40; //maximum number of samples for gradient descent 
-  int setCursor = 0; //cursor for lengthset and poseSet ring buffer
+  int setCursor = 0; //cursor for cableLengthSet and podPoseSet ring buffer
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
   float minVariation = 400; //minimum length variation to add new sample to sets, in pixels
   double epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
@@ -19,7 +19,7 @@ class Calibrator{
   PVector pod = new PVector(); //coordinates of predicted pod position from calibration dataset
   color CalibratorColor = color(0,100,220); //color of calibrated data drawing
   
-  Calibrator(float[] initialLinks, PVector initialPod, float z){
+  Calibrator(float[] initialLinks, float z){
     //button init
     isRunning = new Button(90/2 + width/2, 90/2 + height/2, 90);
     this.init_height = z;
@@ -27,13 +27,14 @@ class Calibrator{
     this.initValues = new float[n];
     arrayCopy(initialLinks,this.initValues);
     this.minVariation = maxFloatArray(initialLinks)/5;
-    this.lengthSet = new float[this.maxSet][n];
-    this.poseSet = new PVector[this.maxSet];
+    this.cableLengthSet = new float[this.maxSet][n];
+    this.podPoseSet = new PVector[this.maxSet];
+    this.pod = new PVector(0,0,this.init_height);
     for(int i=0;i<this.maxSet;i++){
-      this.lengthSet[i] = initialLinks;
-      this.poseSet[i] = initialPod.copy();
+      this.cableLengthSet[i] = initialLinks;
+      this.podPoseSet[i] = this.pod.copy();
     }
-    this.pod = initialPod.copy();
+    
     
     //spread initial pillars coordinates in each direction from measurement amount
     this.pillarsToCalibrate = new PVector[n];
@@ -45,11 +46,11 @@ class Calibrator{
   //add a new sample links measures in the sample list
   void addSample(float[] length_measures, PVector pose){
     int last_cursor = (this.setCursor+this.maxSet-1)%this.maxSet;
-    PVector pod_eval = podFromLinksMeasures(this.lengthSet[last_cursor], this.pillarsToCalibrate);
+    PVector pod_eval = podFromLinksMeasures(this.cableLengthSet[last_cursor], this.pillarsToCalibrate);
     //only add sample if pod differes from last pod by at least minVariation amount
     if( pod_eval.sub(this.pod).mag() > this.minVariation){ 
-      this.lengthSet[this.setCursor] = length_measures;
-      this.poseSet[this.setCursor] = pose.copy();
+      this.cableLengthSet[this.setCursor] = length_measures;
+      this.podPoseSet[this.setCursor] = pose.copy();
       this.setCursor +=1;
       this.setCursor %= this.maxSet;
     }    
@@ -73,10 +74,10 @@ class Calibrator{
     int n=this.setCursor % this.maxSet+1;
     int m=this.pillarsToCalibrate.length; //length must be >= 4
     for(int i=0; i<n;i++){ //compute error over all samples
-      PVector podPrediction = podFromLinksMeasures(this.lengthSet[i],myPillars);
+      PVector podPrediction = podFromLinksMeasures(this.cableLengthSet[i],myPillars);
       for(int j=0; j<m;j++){
         float Lij = podPrediction.copy().sub(myPillars[j]).mag();
-        float realLij = this.lengthSet[i][j];
+        float realLij = this.cableLengthSet[i][j];
         error += sq(Lij - realLij);
         if(podPrediction.z<0) error+=sq(podPrediction.z); //pod cannot have negative z coordinate
         if(podPrediction.z>maxZcoordinates(myPillars)) error+= sq(podPrediction.z - maxZcoordinates(myPillars)); // pod cannot be higher than pillars
@@ -127,8 +128,8 @@ class Calibrator{
   void reset(){
     int n = this.initValues.length;
     for(int i=0;i<this.maxSet;i++){
-      this.lengthSet[i] = this.initValues;
-      this.poseSet[i] = this.pod.copy();
+      this.cableLengthSet[i] = this.initValues;
+      this.podPoseSet[i] = this.pod.copy();
     }
     for(int i=0;i<n;i++){ 
       this.pillarsToCalibrate[i] = PVector.fromAngle(TWO_PI * i/n);
@@ -137,18 +138,18 @@ class Calibrator{
     alignAccordingToFstEdge(this.pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
   }
   
-  void updateCalibrator(float[] links, PVector apod){
+  void updateCalibrator(float[] links){
     //update pod predicted location
     this.pod = podFromLinksMeasures(links, this.pillarsToCalibrate);
     
     //draw sample poses and calibrate only if calibrator is running 
     if(this.isRunning.onoff){
-      myCalibrator.addSample(links,apod);
+      myCalibrator.addSample(links,this.pod);
       myCalibrator.optimizationStep();
       //draw ground truth pod poses used to record links measures
       stroke(this.CalibratorColor);
       strokeWeight(5);
-      for(PVector pose : this.poseSet){
+      for(PVector pose : this.podPoseSet){
         point(pose.x,pose.y,pose.z);
       }
     }
