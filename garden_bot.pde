@@ -9,15 +9,17 @@ class GardenBot{
   PVector[] pillars; // = new PVector[nbPillars]; //store each pillar's x y coordinates and height
   ReactShape footprint;
   PVector pod = new PVector(0,0,0); //store pod's x y z coordinates
+  PVector current_pod = new PVector(0,0,0); //store current pod position
   Button grabber; //a button used to grab the pod on ground plane
   
   boolean podGrabbed = false; //true if pod projection on ground plane is grabbed by user
   
-  GardenBot(PVector[] pillarsCoordinates){
+  GardenBot(PVector[] pillarsCoordinates, float pod_height){
     this.podSize = 40;//(int) (40 * maxWidth(pillarsCoordinates) / width);
     this.grabber = new Button(0,0,podSize);
     this.nbPillars = pillarsCoordinates.length;
     this.pillars = new PVector[this.nbPillars];
+    this.pod.z = pod_height;
     arrayCopy(pillarsCoordinates,this.pillars);
     footprint = new ReactShape(pillars);
   }
@@ -38,15 +40,15 @@ class GardenBot{
     }
     
     //draw pod
-    
-    //if pod is grabbed, update pod location but do not orbit camera
-    if(mousePressed && this.podGrabbed){
-      this.pod = footprint.getClosestPointInsideShape(mouseOnGroundPlane);     //keep pod grabber inside bot footprint
-    }
-    myGardenBot.pod.z = h; //z pod coordinate can be updated when user doesn't grab pod 
     translate(0, 0, this.pod.z);
     ellipse(this.pod.x, this.pod.y, this.podSize, this.podSize);
     translate(0, 0, -this.pod.z);
+    
+    //draw current pod
+    goToXYZ();
+    translate(0, 0, this.current_pod.z);
+    ellipse(this.current_pod.x, this.current_pod.y, this.podSize, this.podSize);
+    translate(0, 0, -this.current_pod.z);
     
     //draw x and y cursor axis
     stroke(150);
@@ -61,22 +63,30 @@ class GardenBot{
     this.grabber.drawButton();
   }
   
-  void grabingUpdate(){
-    if (overRect(this.pod.x, this.pod.y, this.podSize, this.podSize)) {
-      this.podGrabbed = true;
-    } else {
-      this.podGrabbed = false;
-    }
+  boolean isMouseOverGrabber(){
+    return overRect(this.pod.x, this.pod.y, this.podSize, this.podSize);
   }
   
-  float[] returnLinksMeasurements(){
+  void update_pod_location(PVector updatedLocation){
+    float savedheight = this.pod.z;
+    this.pod = this.footprint.getClosestPointInsideShape(updatedLocation);
+    this.pod.z = savedheight;
+  }
+  
+  float[] returnLinksMeasurements(PVector apod){
     float[] links = new float[nbPillars];
     for(int i = 0;i<nbPillars;i++){
-      links[i]= this.pillars[i].copy().sub(this.pod).mag();
+      links[i]= this.pillars[i].copy().sub(apod).mag();
     }
     return links;
   }
   
+  void goToXYZ(){
+    PVector Egoal = this.pod.copy().sub(this.current_pod);
+    float p = 10; // error proportional constant
+    this.current_pod.add(Egoal.mult(1/p));
+    //printArray(returnLinksMeasurements(this.current_pod));
+  }
 }
 
 //class made of any custom shape to know if a point is inside the shape
@@ -86,7 +96,6 @@ class ReactShape {
   PGraphics pg; //create offscreen buffer to test if a point is within shape
    
   ReactShape(PVector[] vertices){
-    super();
     pg = createGraphics((int) (1 * maxWidth(vertices)),(int) (1 * maxHeight(vertices)));
     println("maxwidth "+maxWidth(vertices)+ " maxheight "+maxHeight(vertices));
     this.custom_shape = createShape();
@@ -111,7 +120,7 @@ class ReactShape {
   }
   
   //return true if point over shape
-  boolean overShape(PVector point){
+  boolean isOverFootprint(PVector point){
     if(this.pg.get((int) point.x + pg.width/2,(int) point.y+pg.height/2) == color(255)){
       return true;
     }else{
@@ -122,10 +131,10 @@ class ReactShape {
   //return the closest coordinates inside shape from point using dicotomy, origin must be inside shape
   PVector getClosestPointInsideShape(PVector point){
     PVector pt = point.copy();
-    if(overShape(pt)) return pt;
+    if(isOverFootprint(pt)) return pt;
     float dicotomy_mag = pt.mag()/2;
     while(dicotomy_mag > 1){  //while pixel diff between point and result > 1 pixel
-      if(overShape(pt)){
+      if(isOverFootprint(pt)){
         pt.setMag(pt.mag()+dicotomy_mag);
       }else{
         pt.setMag(pt.mag()-dicotomy_mag);
@@ -142,7 +151,7 @@ class ReactShape {
       float dicotomy_mag = max(pg.width/2,pg.height/2);
       result[i] = point.copy();
       while(dicotomy_mag > 1){  //while pixel diff between point and result > 1 pixel
-        if(overShape(result[i])){   
+        if(isOverFootprint(result[i])){   
           result[i].add(unitVector.copy().mult(dicotomy_mag));
         }else{
           result[i].sub(unitVector.copy().mult(dicotomy_mag));

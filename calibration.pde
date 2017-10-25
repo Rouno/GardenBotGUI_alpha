@@ -17,7 +17,6 @@ class Calibrator{
   float alpha = 0.1; //rate of gradient descent convergence
   int nbGradientDescentStep = 10; //number of gradient descent steps for each optimization step
   PVector pod = new PVector(); //coordinates of predicted pod position from calibration dataset
-  
   color CalibratorColor = color(0,100,220); //color of calibrated data drawing
   
   Calibrator(float[] initialLinks, PVector initialPod, float z){
@@ -27,7 +26,7 @@ class Calibrator{
     int n = initialLinks.length;
     this.initValues = new float[n];
     arrayCopy(initialLinks,this.initValues);
-    this.minVariation = maxFloatArray(initialLinks)/4;
+    this.minVariation = maxFloatArray(initialLinks)/5;
     this.lengthSet = new float[this.maxSet][n];
     this.poseSet = new PVector[this.maxSet];
     for(int i=0;i<this.maxSet;i++){
@@ -38,12 +37,9 @@ class Calibrator{
     
     //spread initial pillars coordinates in each direction from measurement amount
     this.pillarsToCalibrate = new PVector[n];
-    float tetha = TWO_PI / n;
-    for(int i=0;i<n;i++){
-      this.pillarsToCalibrate[i] = new PVector(initialLinks[i] * cos(i*tetha + tetha/2), initialLinks[i] * sin(i*tetha + tetha/2),z);
-    }
-    alignAccordingToFstEdge(pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
+    this.reset();
   }
+    
 
   
   //add a new sample links measures in the sample list
@@ -56,8 +52,7 @@ class Calibrator{
       this.poseSet[this.setCursor] = pose.copy();
       this.setCursor +=1;
       this.setCursor %= this.maxSet;
-    }
-    
+    }    
   }
   
   //returns predicted measurements from current recorded data
@@ -67,12 +62,13 @@ class Calibrator{
     for(int i = 0;i<n;i++){
       links[i]= this.pillarsToCalibrate[i].copy().sub(this.pod).mag();
     }
-    printArray(links);
+    //printArray(links);
     return links;
   }
 
-  double costFunction(){
-    double error=0;
+  //evaluation function for gradient descent algorithm
+  float costFunction(){
+    float error=0;
     PVector[] myPillars = this.pillarsToCalibrate;
     int n=this.setCursor % this.maxSet+1;
     int m=this.pillarsToCalibrate.length; //length must be >= 4
@@ -90,10 +86,11 @@ class Calibrator{
     return error;
   }
   
+  //gradient of evalution function
   PVector[] costFunctionGradient(){
-    double fxyz = this.costFunction(); 
+    float fxyz = this.costFunction(); 
     PVector[] gradient = new PVector[0];
-    println("cost criteria : " +fxyz);
+    //println("cost criteria : " +fxyz);
     //compute partial derivatives for each pillar
     for(PVector vect : this.pillarsToCalibrate){
       double dfx,dfy,dfz;
@@ -124,11 +121,7 @@ class Calibrator{
     }
     
     //center pillars x y coordinates around origin
-    PVector meanPillarsCoordinates = pvectorMean(this.pillarsToCalibrate);
-    meanPillarsCoordinates.z=0;
-    for(PVector vect : this.pillarsToCalibrate){
-      vect.sub(meanPillarsCoordinates);
-    }
+    centerVectorArray(this.pillarsToCalibrate);
   }
 
   void reset(){
@@ -137,21 +130,20 @@ class Calibrator{
       this.lengthSet[i] = this.initValues;
       this.poseSet[i] = this.pod.copy();
     }
-    float tetha = TWO_PI / n;
-    for(int i=0;i<n;i++){
-      this.pillarsToCalibrate[i] = new PVector(this.initValues[i] * cos(i*tetha + tetha/2), this.initValues[i] * sin(i*tetha + tetha/2),this.init_height);
+    for(int i=0;i<n;i++){ 
+      this.pillarsToCalibrate[i] = PVector.fromAngle(TWO_PI * i/n);
+      this.pillarsToCalibrate[i].mult(this.initValues[i]).add(new PVector(0,0,this.init_height));
     }
-    alignAccordingToFstEdge(pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
-
+    alignAccordingToFstEdge(this.pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
   }
   
-  void updateCalibrator(float[] links){
+  void updateCalibrator(float[] links, PVector apod){
     //update pod predicted location
     this.pod = podFromLinksMeasures(links, this.pillarsToCalibrate);
     
-    //draw stuff only if calibrator is running 
+    //draw sample poses and calibrate only if calibrator is running 
     if(this.isRunning.onoff){
-      myCalibrator.addSample(links,this.pod);
+      myCalibrator.addSample(links,apod);
       myCalibrator.optimizationStep();
       //draw ground truth pod poses used to record links measures
       stroke(this.CalibratorColor);
@@ -159,13 +151,14 @@ class Calibrator{
       for(PVector pose : this.poseSet){
         point(pose.x,pose.y,pose.z);
       }
-      //draw pod
-      strokeWeight(1);
-      stroke(this.CalibratorColor);
-      strokeWeight(10);
-      point(this.pod.x,this.pod.y,this.pod.z);
-      strokeWeight(1);
     }
+    
+    //draw pod
+    strokeWeight(1);
+    stroke(this.CalibratorColor);
+    strokeWeight(10);
+    point(this.pod.x,this.pod.y,this.pod.z);
+    strokeWeight(1);
  
     //draw pillars under calibration
     stroke(this.CalibratorColor);
@@ -176,7 +169,7 @@ class Calibrator{
       strokeWeight(3);
       line(pillars[i].x,pillars[i].y,pillars[i].z,pillars[i].x,pillars[i].y,0); 
       strokeWeight(1);
-      if(this.isRunning.onoff) line(pillars[i].x,pillars[i].y,pillars[i].z,this.pod.x,this.pod.y,this.pod.z); //lines between pillars and pod
+      line(pillars[i].x,pillars[i].y,pillars[i].z,this.pod.x,this.pod.y,this.pod.z); //lines between pillars and pod
     }
     
     //draw calibrator button

@@ -72,19 +72,26 @@ PVector pvectorMean(PVector[] vector_array){
   return result;
 }
 
-//align and center a set of PVector according to the first edge along x axis
-void alignAccordingToFstEdge(PVector[] vector_to_align){
-  PVector Ex = new PVector(-1,0);
-  PVector axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
-  float angle = PVector.angleBetween(Ex, axis_to_align);
-  for(PVector vect : vector_to_align){
-    vect.rotate(angle);
-  }
-  PVector mean=pvectorMean(vector_to_align);
-  mean.z = 0;
-  for(PVector vect : vector_to_align){
+//center vector array aouround x & y mean vector
+void centerVectorArray(PVector[] vector_array){
+  PVector mean = pvectorMean(vector_array);
+  mean.z=0;
+  for(PVector vect : vector_array){
     vect.sub(mean);
   }
+}
+
+//align and center a set of PVector according to the first edge along x axis
+void alignAccordingToFstEdge(PVector[] vector_to_align){
+  centerVectorArray(vector_to_align);
+  
+  PVector Ex = new PVector(1,0);
+  PVector axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
+  float angle = PVector.angleBetween(axis_to_align, Ex);
+  for(PVector vect : vector_to_align){
+    vect.rotate(-angle);
+  }
+  axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
 }
 
 //returns max over z coordinates of PVector array
@@ -124,12 +131,31 @@ float maxFloatArray(float[] float_array){
   return result;
 }
 
+//return an array of n random angles arranged and sorted from 0 to TWO_PI
+float[] randomAngles(int n){
+  float[] angle_array = new float[n];
+  float sum_array = 0;
+  for(int i = 0;i<n;i++){
+    angle_array[i] = 1 + random(1);
+    sum_array += angle_array[i];
+  }
+  for(int i = 0;i<n;i++){
+    angle_array[i] /= sum_array;
+    angle_array[i] *= TWO_PI;
+    angle_array[i] -= angle_array[0];
+    if(i>0)angle_array[i]+=angle_array[i-1];
+  }
+  printArray(angle_array);
+  return angle_array;
+}
+
 //return vector array of n random vectors (constant height z, radius: mean & std) sorted by angle 
 PVector[] randomVect(int n, float z, float mean, float std_dev){
   PVector[] vector_array = new PVector[0]; //length of pillars must be >= 4
+  float[] angle_array = randomAngles(n);
   for(int i=0;i<nbPillars;i++){
     vector_array = (PVector[]) append(vector_array,new PVector());
-    vector_array[i] = PVector.fromAngle(2*i*PI/n);
+    vector_array[i] = PVector.fromAngle(angle_array[i]); //vector_array[i] = PVector.fromAngle(TWO_PI * i/n);
     vector_array[i].mult(random(mean*std_dev)+mean*(1-std_dev));
     vector_array[i].add(new PVector(0,0,z));
   }
