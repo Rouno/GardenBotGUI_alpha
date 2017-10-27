@@ -1,12 +1,20 @@
+/* So far microcontroller returns periodically cable motor positions,
+ * Microcontroler code is like 
+ * USBprintf("Actuator: %u Position: %u ",actuator_ids[i],read_position_speed_load_data[num_addr*i]);
+ * inside a for loop where i is the index number of a motor
+ * so far there are 4 words in serial in data
+ */
+
 import processing.serial.*;
+static Serial myPort;      // The serial port
 
-Serial myPort;      // The serial port
-
-String rxBuffer = "";
-boolean firstContact = false;        // Whether we've heard from the microcontroller
-static float SERVO_TO_CABLE_RATIO = 0.00345528;
-static int CARRIAGE_RETURN = 13;
-static int NEW_LINE = 10;
+static String rxBuffer = "";
+String[] receivedTokens;
+boolean firstContact = true;        // Whether we've heard from the microcontroller
+static final String MOTOR_KEYWORD = "Actuator:";
+static final float SERVO_TO_CABLE_RATIO_IN_CM = 0.00345528;
+static final int NB_WORD_SERIAL_IN = 4;
+static final int NEW_LINE = 10;
 
 void setupSerial() {
   myPort = new Serial(this, "/dev/tty.usbmodem1411", 57600);
@@ -16,13 +24,23 @@ void serialEvent(Serial myPort) {
   int inByte = myPort.read();
   
   if (inByte  == NEW_LINE) {
-    myPort.clear();
-    //println(rxBuffer);
-    String[] receivedTokens = splitTokens(rxBuffer," ");
-    float cable_length = 13.0 + SERVO_TO_CABLE_RATIO * float(receivedTokens[3]);
-    println(cable_length);
+    if(!firstContact){
+      myPort.clear();
+      receivedTokens = splitTokens(rxBuffer," "); //<>//
+    }else{
+      myPort.clear();
+      firstContact = false;
+    }
     rxBuffer = "";
   } else {
     rxBuffer += (char) inByte;
   }
+}
+
+float[] getCableLength(String[] srcTokens){
+  float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
+  for(int i = 0;i<result.length;i++){
+    result[i] = 5 * SERVO_TO_CABLE_RATIO_IN_CM * float(srcTokens[NB_WORD_SERIAL_IN*i+3]);
+  }
+  return result;
 }

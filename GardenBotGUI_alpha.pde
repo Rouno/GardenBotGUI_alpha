@@ -4,17 +4,23 @@ CameraControlManager myCameraControls;
 
 float h = 200; //height in z of robot pod, controlled with up & down keys
 float grid_size = 5000; //gridsize 1px = 1mm
-int nbPillars = 4;
+static int nbPillars = 4;
+static  boolean isBotSimulated = false;
 
 
 boolean mouseWheelMove = false;
 
 void setup(){
   //init serial port
+  println("Initializaing serial port");
   try{
     setupSerial();
+    println("Waiting for data from microcontroller");
+    delay(100);
+ //   nbPillars = getMotorKeywordCountInString(rxBuffer);     //<>//
   }catch (Exception e){
-    e.printStackTrace();
+    println("Serial port initialization failed, forcing simulation mode");
+    isBotSimulated = true;
   }
   
   size(800, 600, P3D);
@@ -23,18 +29,21 @@ void setup(){
   //camera initialization
   myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, width);
   
-  //bot init  
+  //simulated bot init
   PVector[] pillars = randomVect(nbPillars, h, width, 0.5) ; 
   alignAccordingToFstEdge(pillars);
   myGardenBot = new GardenBot(pillars, h); //255 is the color of the main gardenBot
-
-  //calibration initialization
-  float[] initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
+  float[] initialLengthSet;
+  if(isBotSimulated){
+    //calibration initialization
+    initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
+  }else{
+    initialLengthSet = getCableLength(receivedTokens);
+  }
   myCalibrator = new Calibrator(initialLengthSet, h);
 }
 
 void draw(){
-  
   myCameraControls.update_mouse();
   if(mousePressed){
     if(myGardenBot.podGrabbed){
@@ -48,8 +57,12 @@ void draw(){
   //drawing part
   background(0);
   drawGrid();
-  myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod)); //draw samples poses
+  if(isBotSimulated){
+    myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
+    myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements(myGardenBot.pod)); //draw samples poses
+  }else{
+    myCalibrator.updateCalibrator(getCableLength(receivedTokens));
+  }
 }
 
 
@@ -80,7 +93,7 @@ void mousePressed(){
 void mouseReleased(){
   //handle camera orbit resume after mouse release
   if(!myGardenBot.podGrabbed){
-    myCameraControls.lastMouseReleaseXY.sub(myCameraControls.lastMouseClickedXY).add(myCameraControls.mouseXY); 
+    myCameraControls.updateLastMouseReleased();
   }else{
     myGardenBot.podGrabbed = false;
   }
