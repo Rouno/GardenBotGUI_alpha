@@ -60,6 +60,10 @@ class CameraControlManager{
     this.orbitAngle = this.lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
   }
   
+  void updateLastMouseReleased(){
+    this.lastMouseReleaseXY.sub(this.lastMouseClickedXY).add(this.mouseXY);
+  }
+  
   //"lastMouseReleaseXY.x + mouseX - lastMouseClickedXYX" is used to preserve last cursor position while mouse was dragged 
   void camera_orbit(float my_orbitRadius,PVector my_orbitAngle){
     float xpos = cos(radians(my_orbitAngle.x - width/2)/10)*my_orbitRadius;

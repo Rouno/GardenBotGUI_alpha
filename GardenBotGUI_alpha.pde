@@ -2,7 +2,7 @@ GardenBot myGardenBot; // GardenBot object
 Calibrator myCalibrator; //store all calibration data sets, length and pod poses
 CameraControlManager myCameraControls;
 
-float h = 200; //height in z of robot pod, controlled with up & down keys
+float h = 370; //height in z of robot pod, controlled with up & down keys
 float grid_size = 5000; //gridsize 1px = 1mm
 static int nbPillars = 4;
 static  boolean isBotSimulated = false;
@@ -38,7 +38,7 @@ void setup(){
     //calibration initialization
     initialLengthSet = myGardenBot.returnLinksMeasurements(myGardenBot.pod);
   }else{
-    initialLengthSet = getCableLength(receivedTokens);
+    initialLengthSet = getCableLength_in_mm(receivedTokens);
   }
   myCalibrator = new Calibrator(initialLengthSet, h);
 }

@@ -11,9 +11,7 @@ static Serial myPort;      // The serial port
 static String rxBuffer = "";
 String[] receivedTokens;
 boolean firstContact = true;        // Whether we've heard from the microcontroller
-static final String MOTOR_KEYWORD = "Actuator:";
-static final float SERVO_TO_CABLE_RATIO_IN_CM = 0.00345528;
-static final int NB_WORD_SERIAL_IN = 4;
+static final int NB_WORD_SERIAL_IN = 8;
 static final int NEW_LINE = 10;
 
 void setupSerial() {
@@ -37,10 +35,10 @@ void serialEvent(Serial myPort) {
   }
 }
 
-float[] getCableLength(String[] srcTokens){
+float[] getCableLength_in_mm(String[] srcTokens){
   float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
   for(int i = 0;i<result.length;i++){
-    result[i] = 5 * SERVO_TO_CABLE_RATIO_IN_CM * float(srcTokens[NB_WORD_SERIAL_IN*i+3]);
+    result[i] = float(srcTokens[NB_WORD_SERIAL_IN*i+3]);
   }
   return result;
 }
