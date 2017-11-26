@@ -8,7 +8,7 @@ class Calibrator {
   float init_height;
   float[][] cableLengthSet; //set of pillars lengths samples for calibration
   PVector[] podPoseSet; //set of pod positions correspondong to lengths samples
-  int maxSet = 40; //maximum number of samples for gradient descent 
+  int maxSet = 50; //maximum number of samples for gradient descent 
   int setCursor = 0; //cursor for cableLengthSet and podPoseSet ring buffer
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
   float minVariation = 400; //minimum length variation to add new sample to sets, in pixels

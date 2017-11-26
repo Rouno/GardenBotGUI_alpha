@@ -10,7 +10,7 @@ State status = State.COMPLIANT;
 final float h = 370; //height in z of robot pod, controlled with up & down keys
 final float GRID_SIZE = 5000; //GRID_SIZE 1px = 1mm
 final int nbPillars = 4;
-boolean isBotSimulated = false;
+boolean isBotSimulated = true;
 
 void setup() {
   //init serial port
@@ -69,6 +69,7 @@ void draw() {
   case CALIBRATION :
     message = "press ENTER to end calibration or SPACE to reset";
     if (isBotSimulated) {
+      myGardenBot.testSetCurrentPodPos();
       myCalibrator.processData(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition)); //draw samples poses
     } else {
       myCalibrator.processData(getCableLength_in_mm(incomingSerialData));
@@ -76,8 +77,9 @@ void draw() {
     myCalibrator.drawCalibration();
     break;
   case OPERATION :
-    message = "system running, drag the white box to operate";
+    message = "system running, drag the white box & UP DOWN to operate ";
     if (isBotSimulated) {
+      myGardenBot.testSetCurrentPodPos();
     } else {
       sendDataToMicrocontroller(myGardenBot.returnCableLengths(myGardenBot.targetPodPosition));
     }

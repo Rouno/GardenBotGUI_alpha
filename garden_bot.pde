@@ -1,11 +1,11 @@
 /* 
  GardenBot related class, with methods for x y and z pod set & read positions 
  */
- 
- static float MAX_WINCH_SPEED = 10;
- static float MIN_WINCH_SPEED = 1;
- static float WINCH_SPEED_RATE = 1.1;
- static float BREAKING_DISTANCE_IN_MM = 100;
+
+static float MAX_WINCH_SPEED = 5;
+static float MIN_WINCH_SPEED = 1;
+static float WINCH_SPEED_RATE = 1.1;
+static float BREAKING_DISTANCE_IN_MM = 100;
 
 class GardenBot {
 
@@ -17,7 +17,7 @@ class GardenBot {
   ReactShape footprint;
   PVector targetPodPosition = new PVector(0, 0, 0); //store target pod position
   PVector currentPodPosition = new PVector(0, 0, 0); //store current pod position
-  float winchSpeed = MIN_WINCH_SPEED;
+  float winchSpeed = MAX_WINCH_SPEED;
   Button grabber; //a button used to grab the pod on ground plane
 
   boolean podGrabbed = false; //true if pod projection on ground plane is grabbed by user
@@ -54,7 +54,6 @@ class GardenBot {
     translate(0, 0, -this.targetPodPosition.z);
 
     //draw current pod
-    goToXYZ();
     translate(0, 0, this.currentPodPosition.z);
     ellipse(this.currentPodPosition.x, this.currentPodPosition.y, this.podSize, this.podSize);
     translate(0, 0, -this.currentPodPosition.z);
@@ -89,8 +88,8 @@ class GardenBot {
     }
     return cableLengthData;
   }
-  
-  float[] getCableVariationRatios(){
+
+  float[] getCableVariationRatios() {
     float[] result = new float[this.nbPillars];
     PVector goalDirection = this.targetPodPosition.copy().sub(this.currentPodPosition);
     goalDirection.div(goalDirection.mag());
@@ -98,43 +97,34 @@ class GardenBot {
     float[] currentCableLength = returnCableLengths(this.currentPodPosition);
     float[] d_targetCableLength = returnCableLengths(d_goalDirection);
     float maxCableVariation = 0;
-    
-    for(int i = 0; i<this.nbPillars; i++){
+
+    for (int i = 0; i<this.nbPillars; i++) {
       result[i] = d_targetCableLength[i] - currentCableLength[i];
-      if(abs(result[i]) > maxCableVariation) maxCableVariation = abs(result[i]);
+      if (abs(result[i]) > maxCableVariation) maxCableVariation = abs(result[i]);
     }
-    for(int i = 0; i<this.nbPillars; i++){
+    for (int i = 0; i<this.nbPillars; i++) {
       result[i] /= maxCableVariation;
     }
     return result;
   }
 
-  void goToXYZ() {
-    /*
-    PVector Egoal = this.targetPodPosition.copy().sub(this.currentPodPosition);
-    float p = 10; // error proportional constant
-    this.currentPodPosition.add(Egoal.mult(1/p));
-    */
-    testSetCurrentPodPos();
-  }
-
-  void testSetCurrentPodPos(){
+  void testSetCurrentPodPos() {
     PVector[] first3Pillars = (PVector[]) subset(this.pillars, 0, 3);
     float[] first3CableLength = (float[]) subset(returnCableLengths(this.currentPodPosition), 0, 3);
-    float[] first3CableRatios = (float[]) subset(getCableVariationRatios(),0,3);
-    setWinchSpeed();
-    for(int i=0;i<3;i++){
-      first3CableLength[i] += first3CableRatios[i]*this.winchSpeed;
+    float[] first3CableRatios = (float[]) subset(getCableVariationRatios(), 0, 3);
+    if (this.currentPodPosition.dist(this.targetPodPosition) > MAX_WINCH_SPEED) {
+      for (int i=0; i<3; i++) {
+        first3CableLength[i] += first3CableRatios[i]*this.winchSpeed;
+      }
     }
-    this.currentPodPosition = podFromcableLengthDataMeasures(first3CableLength,first3Pillars);
+    this.currentPodPosition = podFromcableLengthDataMeasures(first3CableLength, first3Pillars);
   }
 
-  void setWinchSpeed(){
-    if(this.targetPodPosition.dist(this.currentPodPosition)>BREAKING_DISTANCE_IN_MM){
+  void setWinchSpeed() {
+    if (this.targetPodPosition.dist(this.currentPodPosition)>BREAKING_DISTANCE_IN_MM) {
       this.winchSpeed = min(this.winchSpeed * WINCH_SPEED_RATE, MAX_WINCH_SPEED);
-    }else{
+    } else {
       this.winchSpeed = max(this.winchSpeed / WINCH_SPEED_RATE, MIN_WINCH_SPEED);
-      println("this is the winchspeed " + this.winchSpeed);
     }
   }
 
