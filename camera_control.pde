@@ -14,7 +14,7 @@ class CameraControlManager{
   
   PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
   PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
-  PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
+  PVector lastMouseReleaseXY = new PVector(0,0); //mouse coordinates when released for the last time
   PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 
   PVector orbitAngle = new PVector(0,0);
@@ -47,16 +47,16 @@ class CameraControlManager{
     this.Pi.invert();
   }
   
-  void update_camera(){
+  void updateCamera(){
     this.camera_orbit(this.orbitRadius, this.orbitAngle);
   }
   
-  void update_mouse(){
+  void updateMouse(){
     this.mouseXY.set(mouseX,mouseY); //store current mouse coordinates in a vector 
     this.mouseOnGroundPlane.set(this.worldCoords(this.mouseXY.x, this.mouseXY.y, 0)); //get 3D coordinates on ground plane which correspond to the 2D position of the mouse on the screen
   }
   
-  void update_orbit_angle(){
+  void updateOrbitAngle(){
     this.orbitAngle = this.lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
   }
   

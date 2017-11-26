@@ -8,10 +8,11 @@
 import processing.serial.*;
 static Serial myPort;      // The serial port
 
+static String txBuffer ="";
 static String rxBuffer = "";
-String[] receivedTokens;
+String[] incomingSerialData;
 boolean firstContact = true;        // Whether we've heard from the microcontroller
-static final int NB_WORD_SERIAL_IN = 8;
+static final int NB_WORD_SERIAL_IN = 4;
 static final int NEW_LINE = 10;
 
 void setupSerial() {
@@ -24,7 +25,7 @@ void serialEvent(Serial myPort) {
   if (inByte  == NEW_LINE) {
     if(!firstContact){
       myPort.clear();
-      receivedTokens = splitTokens(rxBuffer," "); //<>//
+      incomingSerialData = splitTokens(rxBuffer," "); //<>//
     }else{
       myPort.clear();
       firstContact = false;
@@ -33,6 +34,16 @@ void serialEvent(Serial myPort) {
   } else {
     rxBuffer += (char) inByte;
   }
+}
+
+void sendDataToMicrocontroller(float[] src){
+  float speedi = 100; //speed in mm/s
+  float loadi = 100; //load
+  for(int i = 0; i<src.length; i++){
+    txBuffer += src[i] + " " + speedi + " " + loadi + " ";
+  }
+  myPort.write(txBuffer);
+  txBuffer = "";
 }
 
 float[] getCableLength_in_mm(String[] srcTokens){

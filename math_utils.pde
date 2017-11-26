@@ -1,8 +1,8 @@
 
 
-//Compute pod 3d position from links measurements, takes only 3 points
+//Compute pod 3d position from cableLengthData measurements and, takes only 3 points and 3 distances
 //from https://en.wikipedia.org/wiki/Trilateration
-PVector podFromLinksMeasures(float[] measures, PVector[] P1P2P3){
+PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3){
   float r1 = measures[0];
   float r2 = measures[1];
   float r3 = measures[2];
@@ -36,14 +36,14 @@ PVector podFromLinksMeasures(float[] measures, PVector[] P1P2P3){
     //if 3 spheres intersection has no solution, grab closest solution following Al Kashi theoreme 
     //http://kuartin.math.pagesperso-orange.fr/theoremealkashi.htm
     float cosalpha = (sq(d)-sq(r2)+sq(r1))/(2*r1*d);
-    cosalpha = max(min(cosalpha,1),-1); //ensure unique cosalpha solution by caping cosalpha between -1 and 1, appears when r1 & r2 links cross each others
+    cosalpha = max(min(cosalpha,1),-1); //ensure unique cosalpha solution by caping cosalpha between -1 and 1, appears when r1 & r2 cableLengthData cross each others
     float sinalpha = sqrt(1 - sq(cosalpha));
     result = P1.add(Ex.mult(cosalpha*r1).add(Ey.mult(sinalpha*r1)));
   }
   return result;
 }
 
-//returns distanc between an array and another
+//returns distance between an array and another
 float[] absDiffArray(float[] firstArray, float[] secondArray){
   int n = firstArray.length;
   float[] resultarray = new float[n];
@@ -123,7 +123,7 @@ float maxHeight(PVector[] vector_array){
   return 2*max;
 }
 
-float maxFloatArray(float[] float_array){
+float maxFloatValue(float[] float_array){
   float result=0;
   for(float afloat : float_array){
     if(afloat>result) result=afloat;
