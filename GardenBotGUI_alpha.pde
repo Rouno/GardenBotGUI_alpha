@@ -1,107 +1,152 @@
-Button aButton; //GUI test button
-GardenBot myGardenBot; // GardenBot object
+GardenBot myGardenBot; // GardenBot object //<>//
 Calibrator myCalibrator; //store all calibration data sets, length and pod poses
+CameraControlManager myCameraControls;
 
-PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
-PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
-PVector lastMouseReleaseXY = new PVector(1400,400); //mouse coordinates when released for the last time
-PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
-float h = 200; //height in z of robot pod, controlled with up & down keys
-float grid_size = 5000; //gridsize 1px = 1mm
-int nbPillars = 6;
+enum State {
+  COMPLIANT, CALIBRATION, OPERATION
+};
+State status = State.COMPLIANT;
 
-PVector orbitAngle = new PVector(0,0);
-float orbitRadius, lastOrbitRadius;
-boolean mouseWheelMove = false;
+final float h = 370; //height in z of robot pod, controlled with up & down keys
+final float GRID_SIZE = 5000; //GRID_SIZE 1px = 1mm
+final int nbPillars = 4;
+boolean isBotSimulated = false;
 
-void setup(){
+void setup() {
+  //init serial port
+  println("Initializaing serial port");
+  try {
+    setupSerial();
+    println("Waiting for data from microcontroller");
+    delay(100);
+  }
+  catch (Exception e) {
+    println("Serial port initialization failed, forcing simulation mode");
+    isBotSimulated = true;
+  }
+
   size(800, 600, P3D);
   rectMode(CENTER);
-  
-  orbitRadius = width;
-  lastOrbitRadius = orbitRadius;
-  
-  //camera initialization
-  camera_init();
-  
-  //bot init  
-  PVector[] pillars = randomVect(nbPillars, h, width, 0.9) ; 
-  alignAccordingToFstEdge(pillars);
-  myGardenBot = new GardenBot(pillars); //255 is the color of the main gardenBot
 
-  //calibration initialization
-  float[] initialLengthSet = myGardenBot.returnLinksMeasurements();
-  myCalibrator = new Calibrator(initialLengthSet,myGardenBot.pod, h);
+  //camera initialization
+  myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, width);
+
+  //simulated bot init
+  if (isBotSimulated) {
+    status = State.CALIBRATION;
+    PVector[] pillars = randomVect(nbPillars, h, width, 0.8) ; 
+    alignAccordingToFstEdge(pillars);
+    myGardenBot = new GardenBot(pillars, h);
+    myCalibrator = new Calibrator(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition), h);
+  }
 }
 
-void draw(){
-  mouseXY.set(mouseX,mouseY); //store current mouse coordinates in a vector 
-  mouseOnGroundPlane.set(worldCoords(mouseXY.x, mouseXY.y, 0)); //get 3D coordinates on ground plane which correspond to the 2D position of the mouse on the screen
+void draw() {
 
-  //perform mouse orbiting motion if mousePressed and pod not grabbed by user
-  if(orbitRadius != lastOrbitRadius) camera_orbit(orbitRadius, orbitAngle);
-  
-  //orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-  if(mousePressed && !myGardenBot.podGrabbed){
-    orbitAngle = lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-    camera_orbit(orbitRadius, orbitAngle);
+  myCameraControls.updateMouse();
+  if (mousePressed) {
+    if (myGardenBot!= null && myGardenBot.podGrabbed) {
+      myGardenBot.moveTargetPodPosition(myCameraControls.mouseOnGroundPlane);
+    } else {
+      myCameraControls.updateOrbitAngle();
+    }
   }
-  /*
-  //add sample if min distance criteria and optimize
-  if(myCalibrator.isRunning.onoff){
-    myCalibrator.addSample(myGardenBot.returnLinksMeasurements(),myGardenBot.pod);
-    myCalibrator.optimizationStep();
-  }*/
-  
+  myCameraControls.updateCamera();
 
   //drawing part
   background(0);
   drawGrid();
-  myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
-  myCalibrator.updateCalibrator(myGardenBot.returnLinksMeasurements()); //draw samples poses
-
+  if (myGardenBot!=null) {
+    myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
+  }
+  
+  String message="";
+  
+  switch (status) {
+  case COMPLIANT :
+    message = "press ENTER to start calibration";
+    break;
+  case CALIBRATION :
+    message = "press ENTER to end calibration or SPACE to reset";
+    if (isBotSimulated) {
+      myCalibrator.processData(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition)); //draw samples poses
+    } else {
+      myCalibrator.processData(getCableLength_in_mm(incomingSerialData));
+    }
+    myCalibrator.drawCalibration();
+    break;
+  case OPERATION :
+    message = "system running, drag the white box to operate";
+    if (isBotSimulated) {
+    } else {
+      sendDataToMicrocontroller(myGardenBot.returnCableLengths(myGardenBot.targetPodPosition));
+    }
+    break;
+  }
+  textSize(50);
+  textAlign(CENTER);
+  text(message, 0,height);
 }
 
 
-void keyPressed(){
-  if(keyCode == UP){
-    h+=10;
-  }
-  if(keyCode == DOWN){
-    h-=10;
-  }
-  if(key == ' '){
-    myCalibrator.reset();
+void keyPressed() {
+
+  switch (status) {
+  case COMPLIANT :
+    if (keyCode == ENTER) {
+      status = State.CALIBRATION;
+      if (myCalibrator == null) myCalibrator = new Calibrator(getCableLength_in_mm(incomingSerialData), h);
+    }
+    break;
+
+  case CALIBRATION :
+    if (key == ' ') {
+      myCalibrator.reset();
+    }
+    if (keyCode == ENTER) {
+      status = State.OPERATION;
+      if (myGardenBot == null) myGardenBot = new GardenBot(myCalibrator.pillarsToCalibrate, h);
+    }
+    break;
+
+  case OPERATION :
+    if (keyCode == UP) {
+      myGardenBot.mouvePodUp();
+    }
+    if (keyCode == DOWN) {
+      myGardenBot.movePodDown();
+    }
+    break;
   }
 }
 
-void mousePressed(){
-  lastMouseClickedXY = mouseXY.copy();
-  
-  //update button state
-  myCalibrator.isRunning.stateUpdate();
-  
+void mousePressed() {
+  myCameraControls.lastMouseClickedXY = myCameraControls.mouseXY.copy();
+
   //update grab state if pod is grabbed by user
-  myGardenBot.grabingUpdate();
+  if (myGardenBot!=null && myGardenBot.isMouseOverGrabber()) {
+    myGardenBot.podGrabbed =true;
+  }
 }
 
-void mouseReleased(){
+void mouseReleased() {
   //handle camera orbit resume after mouse release
-  if(!myGardenBot.podGrabbed){
-    lastMouseReleaseXY.sub(lastMouseClickedXY).add(mouseXY); 
+  if (myGardenBot!=null && myGardenBot.podGrabbed) {
+    myGardenBot.podGrabbed = false;
+  } else {
+    myCameraControls.updateLastMouseReleased();
   }
 }
 
 void mouseWheel(MouseEvent event) {
-  int e=event.getCount();
-  orbitRadius -= e;
+  myCameraControls.orbitRadius += event.getCount();
 }
 
-void drawGrid(){
-  float inBetween = 100;
+void drawGrid() {
+  float edgeInMm = 100;
   stroke(50);
-  for(int i=-(int)grid_size/2;i<(int)grid_size/2;i+=inBetween){
-    line(i,grid_size/2,i,-grid_size/2);
-    line(grid_size/2,i,-grid_size/2,i);
+  for (int i=-(int)GRID_SIZE/2; i<(int)GRID_SIZE/2; i+=edgeInMm) {
+    line(i, GRID_SIZE/2, i, -GRID_SIZE/2);
+    line(GRID_SIZE/2, i, -GRID_SIZE/2, i);
   }
 }
