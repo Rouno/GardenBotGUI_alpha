@@ -8,11 +8,12 @@
 import processing.serial.*;
 static Serial myPort;      // The serial port
 
-static String txBuffer ="";
-static String rxBuffer = "";
+String txBuffer ="";
+String rxBuffer = "";
 String[] incomingSerialData;
 boolean firstContact = true;        // Whether we've heard from the microcontroller
 static final int NB_WORD_SERIAL_IN = 4;
+static final int NB_WORD_SERIAL_OUT = 4;
 static final int NEW_LINE = 10;
 
 void setupSerial() {
@@ -37,11 +38,10 @@ void serialEvent(Serial myPort) {
 }
 
 void sendDataToMicrocontroller(float[] src){
-  float speedi = 100; //speed in mm/s
-  float loadi = 100; //load
-  for(int i = 0; i<src.length; i++){
-    txBuffer += src[i] + " " + speedi + " " + loadi + " ";
+  for(int i = 0; i<src.length/NB_WORD_SERIAL_OUT; i++){
+    txBuffer += src[i] + ' ' + src[i+1] + ' ' + src[i+2] + ' ' + src[i+3] + ' ';
   }
+  txBuffer += '\n';
   myPort.write(txBuffer);
   txBuffer = "";
 }
@@ -49,7 +49,7 @@ void sendDataToMicrocontroller(float[] src){
 float[] getCableLength_in_mm(String[] srcTokens){
   float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
   for(int i = 0;i<result.length;i++){
-    result[i] = float(srcTokens[NB_WORD_SERIAL_IN*i+3]);
+    result[i] = float(srcTokens[NB_WORD_SERIAL_IN*i+1]);
   }
   return result;
 }
