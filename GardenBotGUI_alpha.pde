@@ -7,12 +7,12 @@ enum State {
 };
 State status = State.COMPLIANT;
 
-final float h = 370; //height in z of robot pod, controlled with up & down keys
-final float GRID_SIZE = 5000; //GRID_SIZE 1px = 1mm
+final float h = 500; //height in z of robot pod, controlled with up & down keys
+final float GRID_SIZE = 4800; //GRID_SIZE 1px = 1mm
 final int nbPillars = 4;
-boolean isBotSimulated = true;
+boolean isBotSimulated = false;
 
-void setup() {
+void setup() { 
   //init serial port
   println("Initializaing serial port");
   try {
@@ -29,12 +29,12 @@ void setup() {
   rectMode(CENTER);
 
   //camera initialization
-  myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, width);
+  myCameraControls = new CameraControlManager((PGraphicsOpenGL) this.g, 1500);
 
   //simulated bot init
   if (isBotSimulated) {
     status = State.CALIBRATION;
-    PVector[] pillars = randomVect(nbPillars, h, width, 0.8) ; 
+    PVector[] pillars = randomVect(nbPillars, h, 1500, 0.5) ; 
     alignAccordingToFstEdge(pillars);
     myGardenBot = new GardenBot(pillars, h);
     myCalibrator = new Calibrator(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition), h);
@@ -81,7 +81,8 @@ void draw() {
     if (isBotSimulated) {
       myGardenBot.testSetCurrentPodPos();
     } else {
-      sendDataToMicrocontroller(myGardenBot.returnCableLengths(myGardenBot.targetPodPosition));
+      myGardenBot.setCurrentPodPosition(getCableLength_in_mm(incomingSerialData));
+      sendDataToMicrocontroller(myGardenBot.getTargetPosSpeedLoad());
     }
     break;
   }
@@ -97,17 +98,30 @@ void keyPressed() {
   case COMPLIANT :
     if (keyCode == ENTER) {
       status = State.CALIBRATION;
-      if (myCalibrator == null) myCalibrator = new Calibrator(getCableLength_in_mm(incomingSerialData), h);
+      if (myCalibrator == null){ 
+        myCalibrator = new Calibrator(getCableLength_in_mm(incomingSerialData), h);
+        setControllerState(State.CALIBRATION);
+      }
     }
     break;
 
   case CALIBRATION :
     if (key == ' ') {
-      myCalibrator.reset();
+      if (myGardenBot == null){ 
+        myCalibrator.reset(getCableLength_in_mm(incomingSerialData));
+      }else{
+        myCalibrator.reset(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition));
+      }
     }
     if (keyCode == ENTER) {
       status = State.OPERATION;
       if (myGardenBot == null) myGardenBot = new GardenBot(myCalibrator.pillarsToCalibrate, h);
+    }
+    if (keyCode == UP) {
+      myGardenBot.mouvePodUp();
+    }
+    if (keyCode == DOWN) {
+      myGardenBot.movePodDown();
     }
     break;
 

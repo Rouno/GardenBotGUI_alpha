@@ -1,4 +1,4 @@
-/* So far microcontroller returns periodically cable motor positions,
+/* So far microcontroller returns periodically cable motor positions, //<>//
  * Microcontroler code is like 
  * USBprintf("Actuator: %u Position: %u ",actuator_ids[i],read_position_speed_load_data[num_addr*i]);
  * inside a for loop where i is the index number of a motor
@@ -22,12 +22,12 @@ void setupSerial() {
 
 void serialEvent(Serial myPort) {
   int inByte = myPort.read();
-  
+
   if (inByte  == NEW_LINE) {
-    if(!firstContact){
+    if (!firstContact) {
       myPort.clear();
-      incomingSerialData = splitTokens(rxBuffer," "); //<>//
-    }else{
+      incomingSerialData = splitTokens(rxBuffer, " ");
+    } else {
       myPort.clear();
       firstContact = false;
     }
@@ -37,18 +37,28 @@ void serialEvent(Serial myPort) {
   }
 }
 
-void sendDataToMicrocontroller(float[] src){
-  for(int i = 0; i<src.length/NB_WORD_SERIAL_OUT; i++){
+void sendDataToMicrocontroller(float[] src) {
+  for (int i = 0; i<src.length/NB_WORD_SERIAL_OUT; i++) {
     txBuffer += src[i] + ' ' + src[i+1] + ' ' + src[i+2] + ' ' + src[i+3] + ' ';
   }
   txBuffer += '\n';
-  myPort.write(txBuffer);
+  //myPort.write(txBuffer);
   txBuffer = "";
 }
 
-float[] getCableLength_in_mm(String[] srcTokens){
+void setControllerState(State state) {
+  switch (state) {
+  case CALIBRATION:
+    //myPort.write('C');
+    break;
+  default :
+    break;
+  }
+}
+
+float[] getCableLength_in_mm(String[] srcTokens) {
   float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
-  for(int i = 0;i<result.length;i++){
+  for (int i = 0; i<result.length; i++) {
     result[i] = float(srcTokens[NB_WORD_SERIAL_IN*i+1]);
   }
   return result;

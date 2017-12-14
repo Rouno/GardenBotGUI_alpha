@@ -2,9 +2,10 @@
  GardenBot related class, with methods for x y and z pod set & read positions 
  */
 
-static float MAX_WINCH_SPEED = 5;
+static float MAX_WINCH_SPEED = 20;
 static float MIN_WINCH_SPEED = 1;
 static float WINCH_SPEED_RATE = 1.1;
+static float ACTUATOR_LOAD = 500;
 static float BREAKING_DISTANCE_IN_MM = 100;
 
 class GardenBot {
@@ -28,6 +29,7 @@ class GardenBot {
     this.pillarHeight = pillarsCoordinates[0].z;
     this.nbPillars = pillarsCoordinates.length;
     this.pillars = new PVector[this.nbPillars];
+    this.currentPodPosition.z = pod_height;
     this.targetPodPosition.z = pod_height;
     arrayCopy(pillarsCoordinates, this.pillars);
     footprint = new ReactShape(pillars);
@@ -88,6 +90,15 @@ class GardenBot {
     }
     return cableLengthData;
   }
+  
+  void setCurrentPodPosition(float[] lengthInputs){
+    int n = this.pillars.length;
+    PVector[] poseEstimationsArray = new PVector[n];
+    for(int i=0; i<n;i++){
+      poseEstimationsArray[i] = podFromcableLengthDataMeasures(shortenByIndex(lengthInputs,i),shortenByIndex(this.pillars,i));
+    }
+    this.currentPodPosition = pvectorMean(poseEstimationsArray);
+  }
 
   float[] getCableVariationRatios() {
     float[] result = new float[this.nbPillars];
@@ -107,7 +118,20 @@ class GardenBot {
     }
     return result;
   }
-
+  
+  float[] getTargetPosSpeedLoad(){
+    float[] cableLengths = getCableVariationRatios();
+    float[] actuatorSpeeds = getCableVariationRatios();
+    float[] result = new float[pillars.length * NB_WORD_SERIAL_OUT];
+    for(int i = 0; i<pillars.length; i++){
+      result[i] = i;
+      result[i+1] = cableLengths[i];
+      result[i+2] = actuatorSpeeds[i];
+      result[i+3] = ACTUATOR_LOAD;
+    }
+    return result;
+  }
+  
   void testSetCurrentPodPos() {
     PVector[] first3Pillars = (PVector[]) subset(this.pillars, 0, 3);
     float[] first3CableLength = (float[]) subset(returnCableLengths(this.currentPodPosition), 0, 3);
@@ -150,19 +174,24 @@ class ReactShape {
   ReactShape(PVector[] vertices) {
     pg = createGraphics((int) (1 * maxWidth(vertices)), (int) (1 * maxHeight(vertices)));
     println("maxwidth "+maxWidth(vertices)+ " maxheight "+maxHeight(vertices));
+    this.setShape(vertices);
+    
+  }
+
+  void setShape(PVector[] shapeVertices){
     this.custom_shape = createShape();
-    offscreen_custom_shape = createShape();
+    this.offscreen_custom_shape = createShape();
     this.custom_shape.beginShape();
-    offscreen_custom_shape.beginShape();
+    this.offscreen_custom_shape.beginShape();
     this.custom_shape.noFill();
-    offscreen_custom_shape.fill(255);
+    this.offscreen_custom_shape.fill(255);
     this.custom_shape.stroke(255);
-    for (PVector vect : vertices) {
+    for (PVector vect : shapeVertices) {
       this.custom_shape.vertex(vect.x, vect.y);
       offscreen_custom_shape.vertex(vect.x, vect.y);
     }
     this.custom_shape.endShape(CLOSE);
-    offscreen_custom_shape.endShape(CLOSE);
+    this.offscreen_custom_shape.endShape(CLOSE);
     shape(this.custom_shape, 0, 0);
     this.pg.beginDraw();
     this.pg.background(0);
@@ -185,7 +214,7 @@ class ReactShape {
     PVector pt = point.copy();
     if (isOverFootprint(pt)) return pt;
     float dicotomy_mag = pt.mag()/2;
-    while (dicotomy_mag > 1) {  //while pixel diff between point and result > 1 pixel
+    while (dicotomy_mag >= 1) {  //while pixel diff between point and result > 1 pixel
       if (isOverFootprint(pt)) {
         pt.setMag(pt.mag()+dicotomy_mag);
       } else {
@@ -217,7 +246,7 @@ class ReactShape {
 }
 
 //overRect is true if cursor on a 2D rectangle that lies on ground plane
-boolean overRect(float x, float y, float width, float height) {
+boolean overRect(float x, float y, float width, float height){
   if (myCameraControls.mouseOnGroundPlane.x >= x-width/2 && myCameraControls.mouseOnGroundPlane.x <= x+width/2 && 
     myCameraControls.mouseOnGroundPlane.y >= y-height/2 && myCameraControls.mouseOnGroundPlane.y <= y+height/2) {
     return true;

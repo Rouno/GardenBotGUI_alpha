@@ -2,7 +2,7 @@
 
 //Compute pod 3d position from cableLengthData measurements and, takes only 3 points and 3 distances
 //from https://en.wikipedia.org/wiki/Trilateration
-PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3) {
+PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3){
   float r1 = measures[0];
   float r2 = measures[1];
   float r3 = measures[2];
@@ -48,21 +48,15 @@ float[] shortenByIndex(float[] src, int index) {
   int n = src.length;
   float[] result;
   
-  switch(index/n) {
-  case 0:
+  if(index == 0){
     result = subset(src, 1);
-    break;
-  case 1:
-    result = subset(src, 0, index - 1);
-    break;
-  default:
-    float[] before = subset(src, 0, index-1);
+  }else if(index == n-1){
+    result = subset(src, 0, index);
+  }else {
+    float[] before = subset(src, 0, index);
     float[] after= subset(src, index+1, n-1 - index);
     result = concat(before, after);
-    break;
   }
-
-  //println(result.length);
   return result;
 }
 
@@ -70,21 +64,15 @@ PVector[] shortenByIndex(PVector[] src, int index) {
   int n = src.length;
   PVector[] result;
   
-  switch(index/n) {
-  case 0:
+  if(index == 0){
     result = (PVector[]) subset(src, 1);
-    break;
-  case 1:
-    result = (PVector[]) subset(src, 0, index - 1);
-    break;
-  default:
-    PVector[] before = (PVector[]) subset(src, 0, index-1);
+  }else if(index == n-1){
+    result = (PVector[]) subset(src, 0, index);
+  }else {
+    PVector[] before = (PVector[]) subset(src, 0, index);
     PVector[] after= (PVector[]) subset(src, index+1, n-1 - index);
     result = (PVector[]) concat(before, after);
-    break;
   }
-  
-  //println(result.length);
   return result;
 }
 
@@ -115,6 +103,17 @@ PVector pvectorMean(PVector[] vector_array) {
   }
   result = result.div(vector_array.length);
   return result;
+}
+
+float stdDeviation(float[] src){
+  float mean = sumFloatArray(src)/src.length;
+  float standard_deviation = 0;
+  for(int i=0; i<src.length; i++){
+    standard_deviation += sq(src[i]-mean);
+  }
+  standard_deviation /= src.length - 1;
+  standard_deviation = sqrt(standard_deviation);
+  return standard_deviation;
 }
 
 //center vector array aouround x & y mean vector
@@ -153,7 +152,7 @@ float maxWidth(PVector[] vector_array) {
   float max;
   max=0;
   for (PVector vect : vector_array) {
-    if (abs(vect.x) > max) max = abs(vect.x);
+    if (abs(vect.x) >= max) max = abs(vect.x);
   }
   return 2*max;
 }
@@ -163,7 +162,7 @@ float maxHeight(PVector[] vector_array) {
   float max;
   max=0;
   for (PVector vect : vector_array) {
-    if (abs(vect.y) > max) max = abs(vect.y);
+    if (abs(vect.y) >= max) max = abs(vect.y);
   }
   return 2*max;
 }
