@@ -26,6 +26,7 @@ void setup() {
   }
 
   size(800, 600, P3D);
+  surface.setResizable(true); // XXX added by pilo : the window can now be resized
   rectMode(CENTER);
 
   //camera initialization
