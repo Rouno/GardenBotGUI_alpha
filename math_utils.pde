@@ -2,7 +2,7 @@
 
 //Compute pod 3d position from cableLengthData measurements and, takes only 3 points and 3 distances
 //from https://en.wikipedia.org/wiki/Trilateration
-PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3){
+PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3) {
   float r1 = measures[0];
   float r2 = measures[1];
   float r3 = measures[2];
@@ -47,12 +47,12 @@ PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3){
 float[] shortenByIndex(float[] src, int index) {
   int n = src.length;
   float[] result;
-  
-  if(index == 0){
+
+  if (index == 0) {
     result = subset(src, 1);
-  }else if(index == n-1){
+  } else if (index == n-1) {
     result = subset(src, 0, index);
-  }else {
+  } else {
     float[] before = subset(src, 0, index);
     float[] after= subset(src, index+1, n-1 - index);
     result = concat(before, after);
@@ -63,12 +63,12 @@ float[] shortenByIndex(float[] src, int index) {
 PVector[] shortenByIndex(PVector[] src, int index) {
   int n = src.length;
   PVector[] result;
-  
-  if(index == 0){
+
+  if (index == 0) {
     result = (PVector[]) subset(src, 1);
-  }else if(index == n-1){
+  } else if (index == n-1) {
     result = (PVector[]) subset(src, 0, index);
-  }else {
+  } else {
     PVector[] before = (PVector[]) subset(src, 0, index);
     PVector[] after= (PVector[]) subset(src, index+1, n-1 - index);
     result = (PVector[]) concat(before, after);
@@ -105,10 +105,10 @@ PVector pvectorMean(PVector[] vector_array) {
   return result;
 }
 
-float stdDeviation(float[] src){
+float stdDeviation(float[] src) {
   float mean = sumFloatArray(src)/src.length;
   float standard_deviation = 0;
-  for(int i=0; i<src.length; i++){
+  for (int i=0; i<src.length; i++) {
     standard_deviation += sq(src[i]-mean);
   }
   standard_deviation /= src.length - 1;
@@ -204,4 +204,11 @@ PVector[] randomVect(int n, float z, float mean, float std_dev) {
     vector_array[i].add(new PVector(0, 0, z));
   }
   return vector_array;
+}
+
+void drawCoordinatesOnPlane(PVector vector) {
+  PVector textPosition = new PVector(vector.x, vector.y);
+  textPosition.add(textPosition.copy().normalize().mult(3*TEXT_SIZE));
+  textSize(TEXT_SIZE);
+  text("x="+round(vector.x) +"mm"+ "\n"+"y="+round(vector.y)+"mm", textPosition.x, textPosition.y);
 }

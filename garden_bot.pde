@@ -48,7 +48,8 @@ class GardenBot {
       line(this.pillars[i].x, this.pillars[i].y, this.pillars[i].z, this.pillars[i].x, this.pillars[i].y, 0); 
       strokeWeight(1);
       line(this.pillars[i].x, this.pillars[i].y, this.pillars[i].z, this.currentPodPosition.x, this.currentPodPosition.y, this.currentPodPosition.z);
-    }
+      //drawCoordinatesOnPlane(this.pillars[i]);
+  }
 
     //draw pod
     translate(0, 0, this.targetPodPosition.z);

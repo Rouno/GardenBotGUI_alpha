@@ -7,10 +7,13 @@ enum State {
 };
 State status = State.COMPLIANT;
 
-final float h = 500; //height in z of robot pod, controlled with up & down keys
-final float GRID_SIZE = 4800; //GRID_SIZE 1px = 1mm
+final float h = 480; //height of pillars in mm
+final float GRID_SIZE = 5000; //GRID_SIZE 1px = 1mm
+final float GRID_RES = 100; //resoltion in between grid lines in mm
 final int nbPillars = 4;
 boolean isBotSimulated = false;
+
+final int TEXT_SIZE = 30; //size of text used
 
 void setup() { 
   //init serial port
@@ -26,7 +29,6 @@ void setup() {
   }
 
   size(800, 600, P3D);
-  surface.setResizable(true); // XXX added by pilo : the window can now be resized
   rectMode(CENTER);
 
   //camera initialization
@@ -35,7 +37,7 @@ void setup() {
   //simulated bot init
   if (isBotSimulated) {
     status = State.CALIBRATION;
-    PVector[] pillars = randomVect(nbPillars, h, 1500, 0.5) ; 
+    PVector[] pillars = randomVect(nbPillars, h, 1000, 0.5) ; 
     alignAccordingToFstEdge(pillars);
     myGardenBot = new GardenBot(pillars, h);
     myCalibrator = new Calibrator(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition), h);
@@ -60,20 +62,25 @@ void draw() {
   if (myGardenBot!=null) {
     myGardenBot.drawBot(); //draw pillars, pod, cables, pod grabber and axis
   }
-  
+
   String message="";
-  
+
   switch (status) {
   case COMPLIANT :
     message = "press ENTER to start calibration";
     break;
   case CALIBRATION :
-    message = "press ENTER to end calibration or SPACE to reset";
+    message = "press ENTER to end calibration \n or SPACE to reset";
     if (isBotSimulated) {
       myGardenBot.testSetCurrentPodPos();
       myCalibrator.processData(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition)); //draw samples poses
     } else {
-      myCalibrator.processData(getCableLength_in_mm(incomingSerialData));
+      try {
+        myCalibrator.processData(getCableLength_in_mm(incomingSerialData));
+      }   
+      catch (Exception e) {
+        println("Serial port failed despite serial initialization, try to reboot micro-controller");
+      }
     }
     myCalibrator.drawCalibration();
     break;
@@ -82,14 +89,22 @@ void draw() {
     if (isBotSimulated) {
       myGardenBot.testSetCurrentPodPos();
     } else {
-      myGardenBot.setCurrentPodPosition(getCableLength_in_mm(incomingSerialData));
-      sendDataToMicrocontroller(myGardenBot.getTargetPosSpeedLoad());
+      try {
+        myGardenBot.setCurrentPodPosition(getCableLength_in_mm(incomingSerialData));
+        sendDataToMicrocontroller(myGardenBot.getTargetPosSpeedLoad());
+      }   
+      catch (Exception e) {
+        println("Serial port failed despite serial initialization, try to reboot micro-controller");
+      }
     }
     break;
   }
-  textSize(50);
+  textSize(TEXT_SIZE);
   textAlign(CENTER);
-  text(message, 0,height);
+  text(message, 0, height);
+  textAlign(LEFT);
+  fill(0, 255, 0);
+  text("\n\nCost Criteria : " + myCalibrator.cost, 0, height);
 }
 
 
@@ -99,7 +114,7 @@ void keyPressed() {
   case COMPLIANT :
     if (keyCode == ENTER) {
       status = State.CALIBRATION;
-      if (myCalibrator == null){ 
+      if (myCalibrator == null) { 
         myCalibrator = new Calibrator(getCableLength_in_mm(incomingSerialData), h);
         setControllerState(State.CALIBRATION);
       }
@@ -108,9 +123,9 @@ void keyPressed() {
 
   case CALIBRATION :
     if (key == ' ') {
-      if (myGardenBot == null){ 
+      if (myGardenBot == null) { 
         myCalibrator.reset(getCableLength_in_mm(incomingSerialData));
-      }else{
+      } else {
         myCalibrator.reset(myGardenBot.returnCableLengths(myGardenBot.currentPodPosition));
       }
     }
@@ -160,9 +175,8 @@ void mouseWheel(MouseEvent event) {
 }
 
 void drawGrid() {
-  float edgeInMm = 100;
   stroke(50);
-  for (int i=-(int)GRID_SIZE/2; i<(int)GRID_SIZE/2; i+=edgeInMm) {
+  for (int i=-(int)GRID_SIZE/2; i<(int)GRID_SIZE/2; i+=GRID_RES) {
     line(i, GRID_SIZE/2, i, -GRID_SIZE/2);
     line(GRID_SIZE/2, i, -GRID_SIZE/2, i);
   }
