@@ -39,6 +39,7 @@ class CameraControlManager{
     this.Si.invert();
     
     //set camera position
+    // XXX added by pilo : this seems useless?
     camera(0, 0, width, 0, 0, 0, 0, 1, 0);
     
     //get current camera projection and inverse
@@ -48,6 +49,7 @@ class CameraControlManager{
   }
   
   void updateCamera(){
+    this.init_camera_matrices(); // update camera matrices
     this.camera_orbit(this.orbitRadius, this.orbitAngle);
   }
   
