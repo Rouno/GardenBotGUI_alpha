@@ -197,7 +197,7 @@ float[] randomAngles(int n) {
 PVector[] randomVect(int n, float z, float mean, float std_dev) {
   PVector[] vector_array = new PVector[0]; //length of pillars must be >= 4
   float[] angle_array = randomAngles(n);
-  for (int i=0; i<nbPillars; i++) {
+  for (int i=0; i<n; i++) {
     vector_array = (PVector[]) append(vector_array, new PVector());
     vector_array[i] = PVector.fromAngle(angle_array[i]); //vector_array[i] = PVector.fromAngle(TWO_PI * i/n);
     vector_array[i].mult(random(mean*std_dev)+mean*(1-std_dev));

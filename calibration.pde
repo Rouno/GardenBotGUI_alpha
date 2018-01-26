@@ -55,7 +55,7 @@ class Calibrator {
       for (int j=0; j<m; j++) {
         podPredictionArray[j] = podFromcableLengthDataMeasures(sample, myPillars);
         float Lij = podPredictionArray[j].copy().sub(myPillars[j]).mag();
-        float realLij = sample[j] * this.errorFactorArray[j] * this.errorFactorEstimationArray[j];
+        float realLij = sample[j] * this.errorFactorEstimationArray[j];// *this.errorFactorArray[j];
         float lengthErr = sq(Lij - realLij);
         error += lengthErr;
         if (podPredictionArray[j].z <0) error+= sq(podPredictionArray[j].z);

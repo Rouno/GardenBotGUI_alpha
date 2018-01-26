@@ -7,49 +7,66 @@
 
 import processing.serial.*;
 static Serial myPort;      // The serial port
+final int serialOutPeriod = 1; //minimum time in between sending serial commands, in ms
+boolean serialReadingEnabled = true;
+int lastTimeSerialOut = millis();
 
 String txBuffer ="";
 String rxBuffer = "";
 String[] incomingSerialData;
 boolean firstContact = true;        // Whether we've heard from the microcontroller
-static final int NB_WORD_SERIAL_IN = 4;
-static final int NB_WORD_SERIAL_OUT = 4;
+static final int NB_WORD_SERIAL_IN = 3;
+static final int NB_WORD_SERIAL_OUT = 3;
 static final int NEW_LINE = 10;
 
 void setupSerial() {
   myPort = new Serial(this, "/dev/tty.usbmodem1411", 57600);
+  myPort.bufferUntil(NEW_LINE);
 }
 
 void serialEvent(Serial myPort) {
-  int inByte = myPort.read();
-
-  if (inByte  == NEW_LINE) {
-    if (!firstContact) {
-      myPort.clear();
-      incomingSerialData = splitTokens(rxBuffer, " ");
-    } else {
-      myPort.clear();
+  if (serialReadingEnabled) {
+    if (firstContact) {
       firstContact = false;
+    } else {
+      rxBuffer = myPort.readString();
+      incomingSerialData = splitTokens(rxBuffer, " ");
     }
-    rxBuffer = "";
-  } else {
-    rxBuffer += (char) inByte;
   }
+  myPort.clear();
+  rxBuffer = "";
 }
 
 void sendDataToMicrocontroller(float[] src) {
-  for (int i = 0; i<src.length/NB_WORD_SERIAL_OUT; i++) {
-    txBuffer += src[i] + ' ' + src[i+1] + ' ' + src[i+2] + ' ' + src[i+3] + ' ';
+  if (millis() - lastTimeSerialOut >= serialOutPeriod) {
+    lastTimeSerialOut = millis();
+    txBuffer="G";
+    for (int i = 0; i<src.length/NB_WORD_SERIAL_OUT; i++) {
+      txBuffer += Integer.toString((int)src[i*NB_WORD_SERIAL_OUT]) + ' ' + Integer.toString((int)src[i*NB_WORD_SERIAL_OUT+1]) + ' ' + Integer.toString((int)src[i*NB_WORD_SERIAL_OUT+2]) + ' ';
+    }
+    txBuffer += '\n';
+    myPort.write(txBuffer);
+    txBuffer = "";
   }
-  txBuffer += '\n';
-  //myPort.write(txBuffer);
-  txBuffer = "";
 }
 
-void setControllerState(State state) {
+void setState(State state) {
+  status = state;
   switch (state) {
+  case COMPLIANT:
+    if (!isBotSimulated) {
+      myPort.write('M');
+    }
+    break;
   case CALIBRATION:
-    //myPort.write('C');
+    if (!isBotSimulated) {
+      //myPort.write('C');
+    }
+    break;
+  case OPERATION:
+    if (!isBotSimulated) {
+      myPort.write('O');
+    }
     break;
   default :
     break;
@@ -57,9 +74,27 @@ void setControllerState(State state) {
 }
 
 float[] getCableLength_in_mm(String[] srcTokens) {
-  float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
-  for (int i = 0; i<result.length; i++) {
-    result[i] = float(srcTokens[NB_WORD_SERIAL_IN*i+1]);
+  serialReadingEnabled = false;
+  try {
+    float[] result = new float[srcTokens.length/NB_WORD_SERIAL_IN];
+    for (int i = 0; i<result.length; i++) {
+      result[i] = float(
+        srcTokens[NB_WORD_SERIAL_IN*i]);
+    }
+    serialReadingEnabled = true;
+    return result;
+  } 
+  catch (Exception e) {
+    println("Serial port failed despite serial initialization, try to reboot micro-controller");
+    serialReadingEnabled = true;
+    return null;
+  }
+}
+
+int computeChecksum(String packet) {
+  byte result = 0;
+  for (int i=0; i<packet.length(); i++) {
+    result += (byte) packet.charAt(i);
   }
   return result;
 }
