@@ -3,123 +3,117 @@
  * with gradient descent method
  */
 
+final float MAX_GRADIENT_AMP = 100;
+
 class Calibrator {
-  float[] initValues; //store initial measurement values for reset function
   float init_height;
   float[][] cableLengthSet; //set of pillars lengths samples for calibration
-  PVector[] podPoseSet; //set of pod positions correspondong to lengths samples
   int maxSet = 50; //maximum number of samples for gradient descent 
-  int setCursor = 0; //cursor for cableLengthSet and podPoseSet ring buffer
   PVector[] pillarsToCalibrate; //store all pillars coordinates to be calibrated
-  float minVariation = 400; //minimum length variation to add new sample to sets, in pixels
-  double epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
-  float alpha = 0.1; //rate of gradient descent convergence
-  int nbGradientDescentStep = 20; //number of gradient descent steps for each optimization step
+  float minVariation = 5; //maxlength cable divider to create a new sample point 
+  float epsilon = 0.0001; //epsilon value for partial derivative computation, value is in pixel so far
+  float alpha = 0.05; //rate of gradient descent convergence
+  float cost =0;
+  ReactShape footprint;
   PVector pod = new PVector(); //coordinates of predicted pod position from calibration dataset
   color CalibratorColor = color(0, 100, 220); //color of calibrated data drawing
+  float[] errorFactorArray;
+  float[] errorFactorEstimationArray;
 
   Calibrator(float[] initialcableLengthData, float z) {
     this.init_height = z;
-    int n = initialcableLengthData.length;
-    this.initValues = new float[n];
-    arrayCopy(initialcableLengthData, this.initValues);
-    this.minVariation = maxFloatValue(initialcableLengthData)/5;
-    this.cableLengthSet = new float[this.maxSet][n];
-    this.podPoseSet = new PVector[this.maxSet];
+    this.minVariation = maxFloatValue(initialcableLengthData)/this.minVariation;
     this.pod = new PVector(0, 0, this.init_height);
-    for (int i=0; i<this.maxSet; i++) {
-      this.cableLengthSet[i] = initialcableLengthData;
-      this.podPoseSet[i] = this.pod.copy();
+    this.pillarsToCalibrate = new PVector[initialcableLengthData.length];
+    this.reset(initialcableLengthData);
+    this.footprint = new ReactShape(this.pillarsToCalibrate);
+    this.errorFactorArray = new float[initialcableLengthData.length];
+    this.errorFactorEstimationArray = new float[initialcableLengthData.length];
+    for (int i=0; i<initialcableLengthData.length; i++) {
+      this.errorFactorArray[i] = 1 +  randomGaussian()/20;
+      this.errorFactorEstimationArray[i] = 1;
     }
-
-
-    //spread initial pillars coordinates in each direction from measurement amount
-    this.pillarsToCalibrate = new PVector[n];
-    this.reset();
   }
 
-
-
   //add a new sample cableLengthData measures in the sample list
-  void addSample(float[] length_measures, PVector pose) {
-    int last_cursor = (this.setCursor+this.maxSet-1)%this.maxSet;
-    PVector pod_eval = podFromcableLengthDataMeasures(this.cableLengthSet[last_cursor], this.pillarsToCalibrate);
-    //only add sample if pod differes from last pod by at least minVariation amount
-    if ( pod_eval.sub(this.pod).mag() > this.minVariation) { 
-      this.cableLengthSet[this.setCursor] = length_measures;
-      this.podPoseSet[this.setCursor] = pose.copy();
-      this.setCursor +=1;
-      this.setCursor %= this.maxSet;
+  void addSample(float[] length_measures) {
+    if (this.cableLengthSet.length >= this.maxSet) {
+      this.cableLengthSet = (float[][])shorten(this.cableLengthSet);
     }
+    float[][] tmp = new float[1][length_measures.length];
+    tmp[0]=length_measures;
+    this.cableLengthSet = (float[][]) splice(this.cableLengthSet, tmp, 0);
   }
 
   //evaluation function for gradient descent algorithm
   float costFunction() {
     float error=0;
     PVector[] myPillars = this.pillarsToCalibrate;
-    int n=this.setCursor % this.maxSet+1;
     int m=this.pillarsToCalibrate.length; //length must be >= 4
-    for (int i=0; i<n; i++) { //compute error over all samples
-      PVector podPrediction = podFromcableLengthDataMeasures(this.cableLengthSet[i], myPillars);
+    for (float[] sample : this.cableLengthSet) {
+      PVector[] podPredictionArray = new PVector[myPillars.length];
       for (int j=0; j<m; j++) {
-        float Lij = podPrediction.copy().sub(myPillars[j]).mag();
-        float realLij = this.cableLengthSet[i][j];
-        error += sq(Lij - realLij);
-        if (podPrediction.z<0) error+=sq(podPrediction.z); //pod cannot have negative z coordinate
-        if (podPrediction.z>maxZcoordinates(myPillars)) error+= sq(podPrediction.z - maxZcoordinates(myPillars)); // pod cannot be higher than pillars
+        podPredictionArray[j] = podFromcableLengthDataMeasures(sample, myPillars);
+        float Lij = podPredictionArray[j].copy().sub(myPillars[j]).mag();
+        float realLij = sample[j] * this.errorFactorEstimationArray[j];// *this.errorFactorArray[j];
+        float lengthErr = sq(Lij - realLij);
+        error += lengthErr;
+        if (podPredictionArray[j].z <0) error+= sq(podPredictionArray[j].z);
       }
     }
-    error/=2 * n;
+    error/=2 * this.cableLengthSet.length;
     return error;
   }
 
   //gradient of evalution function
   PVector[] costFunctionGradient() {
-    float fxyz = this.costFunction(); 
-    PVector[] gradient = new PVector[0];
-    //println("cost criteria : " +fxyz);
+    float fxyz = this.costFunction();
+    this.cost = fxyz;
+    PVector[] gradient = new PVector[2*this.pillarsToCalibrate.length];
     //compute partial derivatives for each pillar
-    for (PVector vect : this.pillarsToCalibrate) {
-      double dfx, dfy, dfz;
-      vect.x += epsilon;
-      dfx = (this.costFunction() - fxyz)/this.epsilon;
-      vect.x -= epsilon;
-      vect.y += epsilon;
-      dfy = (this.costFunction() - fxyz)/this.epsilon;
-      vect.y -= epsilon;
-      dfz = 0 ;  //(this.costFunction() - fxyz)/this.epsilon; assume that all pillars are at the same height
-      gradient = (PVector[]) append(gradient, new PVector((float) dfx, (float) dfy, (float) dfz));
+    for (int i=0; i<this.pillarsToCalibrate.length; i++) {
+      float dfx, dfy, dfz, d_errfact;
+      this.pillarsToCalibrate[i].x += epsilon;
+      dfx = constrain((this.costFunction() - fxyz)/this.epsilon, -MAX_GRADIENT_AMP, MAX_GRADIENT_AMP);
+      this.pillarsToCalibrate[i].x -= epsilon;
+      this.pillarsToCalibrate[i].y += epsilon;
+      dfy = constrain((this.costFunction() - fxyz)/this.epsilon, -MAX_GRADIENT_AMP, MAX_GRADIENT_AMP);
+      this.pillarsToCalibrate[i].y -= epsilon;
+      dfz = 0; //constrain((this.costFunction() - fxyz)/this.epsilon, -MAX_GRADIENT_AMP,MAX_GRADIENT_AMP); //assume that all pillars are at the same height
+      this.errorFactorEstimationArray[i] += epsilon; //each cable error scale factor is stored in a PVector with only x coordinate used
+      d_errfact = constrain((this.costFunction() - fxyz), -MAX_GRADIENT_AMP, MAX_GRADIENT_AMP); //gradient is not computed the same way as error factor differes in magnitude
+      this.errorFactorEstimationArray[i] -= epsilon;
+      gradient[i] = new PVector(dfx, dfy, dfz);
+      gradient[this.pillarsToCalibrate.length + i]= new PVector(d_errfact, 0);
     }
     return gradient;
   }
 
   void optimizationStep() {
+    this.footprint.setShape(this.pillarsToCalibrate);
     int n = this.pillarsToCalibrate.length;
     PVector[] gradient = new PVector[n];
-
-    for (int i= 0; i<this.nbGradientDescentStep; i++) {
-      gradient = costFunctionGradient();
-      //correction step : params -= alpha * gradient
-      for (int j = 1; j<n; j++) { //fix first pillar coordinates 
-        gradient[j].mult(this.alpha);
-        this.pillarsToCalibrate[j].sub(gradient[j]);
-      }
-      this.pillarsToCalibrate[1].y += gradient[1].y; //fix 2nd pillar y coordinate
+    gradient = costFunctionGradient();
+    //correction step : params -= alpha * gradient
+    for (int i = 0; i<n; i++) { //fix first pillar coordinates 
+      gradient[i].mult(this.alpha);
+      this.pillarsToCalibrate[i].sub(gradient[i]);
+      this.errorFactorEstimationArray[i] -= epsilon * gradient[i+n].x;
     }
-
+    this.pillarsToCalibrate[0].x += gradient[0].x; //fix 1st pillar x coordinate
+    this.pillarsToCalibrate[0].y += gradient[0].y; //fix 1st pillar x coordinate
+    this.pillarsToCalibrate[1].y += gradient[1].y; //fix 2nd pillar y coordinate
     //center pillars x y coordinates around origin
     centerVectorArray(this.pillarsToCalibrate);
   }
 
-  void reset() {
-    int n = this.initValues.length;
-    for (int i=0; i<this.maxSet; i++) {
-      this.cableLengthSet[i] = this.initValues;
-      this.podPoseSet[i] = this.pod.copy();
-    }
+  void reset(float[] initial_values) {
+    int n = initial_values.length;
+    this.cableLengthSet = new float[1][n];
+    this.cableLengthSet[0] = initial_values;
     for (int i=0; i<n; i++) { 
       this.pillarsToCalibrate[i] = PVector.fromAngle(TWO_PI * i/n);
-      this.pillarsToCalibrate[i].mult(this.initValues[i]).add(new PVector(0, 0, this.init_height));
+      this.pillarsToCalibrate[i].mult(this.cableLengthSet[0][i]).add(new PVector(0, 0, this.init_height));
     }
     alignAccordingToFstEdge(this.pillarsToCalibrate); //align and center initial pillars coordinates prediction to match ground truth convergence
   }
@@ -127,19 +121,22 @@ class Calibrator {
   void processData(float[] cableLengthData) {
     //update pod predicted location
     this.pod = podFromcableLengthDataMeasures(cableLengthData, this.pillarsToCalibrate);
-
-    //draw sample poses and calibrate only if calibrator is running 
-    myCalibrator.addSample(cableLengthData, this.pod);
-    myCalibrator.optimizationStep();
-    //draw ground truth pod poses used to record cableLengthData measures
-    stroke(this.CalibratorColor);
-    strokeWeight(5);
-    for (PVector pose : this.podPoseSet) {
-      point(pose.x, pose.y, pose.z);
+    float distanceFromLastSample = podFromcableLengthDataMeasures(this.cableLengthSet[0], this.pillarsToCalibrate).sub(this.pod).mag();
+    if (distanceFromLastSample > this.minVariation) {
+      myCalibrator.addSample(cableLengthData);
     }
+    myCalibrator.optimizationStep();
   }
 
   void drawCalibration() {
+    //draw pod samples poses generated by cableLengthData measures
+    stroke(this.CalibratorColor);
+    strokeWeight(5);
+    for (float[] cableLength : this.cableLengthSet) {
+      PVector pose = podFromcableLengthDataMeasures(cableLength, this.pillarsToCalibrate);
+      point(pose.x, pose.y, pose.z);
+    }
+    
     //draw pod
     strokeWeight(1);
     stroke(this.CalibratorColor);
@@ -157,7 +154,7 @@ class Calibrator {
       line(pillars[i].x, pillars[i].y, pillars[i].z, pillars[i].x, pillars[i].y, 0); 
       strokeWeight(1);
       line(pillars[i].x, pillars[i].y, pillars[i].z, this.pod.x, this.pod.y, this.pod.z); //lines between pillars and pod
-    }
-
+      drawCoordinatesOnPlane(pillars[i]);
+    }  
   }
 }

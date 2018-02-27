@@ -14,10 +14,10 @@ class CameraControlManager{
   
   PVector mouseXY = new PVector(0,0);   //used to store mouse coordinate in 2D vector
   PVector lastMouseClickedXY = new PVector(0,0); //mouse coordinates when clicked for the last time 
-  PVector lastMouseReleaseXY = new PVector(0,0); //mouse coordinates when released for the last time
+  PVector lastMouseReleaseXY = new PVector(1300,500); //mouse coordinates when released for the last time
   PVector mouseOnGroundPlane = new PVector(0,0); //used to store 2D mouse projection on (x,y,0) plane
 
-  PVector orbitAngle = new PVector(0,0);
+  PVector orbitAngle = new PVector(1300,500);
   float orbitRadius, lastOrbitRadius;
   
   CameraControlManager(PGraphicsOpenGL openglObject, float orbitRadiusValue){
@@ -57,8 +57,8 @@ class CameraControlManager{
   }
   
   void updateOrbitAngle(){
-    this.orbitAngle = this.lastMouseReleaseXY.copy().add(mouseXY).sub(lastMouseClickedXY);
-  }
+    this.orbitAngle = this.lastMouseReleaseXY.copy().add(mouseXY).sub(this.lastMouseClickedXY);
+}
   
   void updateLastMouseReleased(){
     this.lastMouseReleaseXY.sub(this.lastMouseClickedXY).add(this.mouseXY);
