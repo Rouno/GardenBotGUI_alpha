@@ -46,7 +46,7 @@ void setup() {
     loadCalibFromFile("calibration.txt", nbPillars, pillars, errorFactors);
   } else {
     setState(State.CALIBRATION);
-    PVector[] pillars=new PVector[nbPillars];
+    pillars=new PVector[nbPillars];
     pillars = randomVect(nbPillars, h, 1500, 0.5) ; 
     alignAccordingToFstEdge(pillars);
   }

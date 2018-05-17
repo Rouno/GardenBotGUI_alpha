@@ -2,7 +2,7 @@
  GardenBot related class, with methods for x y and z pod set & read positions 
  */
 
-static float MAX_WINCH_SPEED = 50;
+static float MAX_WINCH_SPEED = 5; //50;
 static float MIN_WINCH_SPEED = 1;
 static float WINCH_SPEED_RATE = 1.1;
 static float ACTUATOR_LOAD = 200;
