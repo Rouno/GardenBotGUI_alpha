@@ -1,19 +1,118 @@
+//class made of any custom shape to know if a point is inside the shape
+class ReactShape {
+  PShape customShape;
+  PShape offscreenCustomShape;
+  color c = color(0,0,100);
+  PGraphics pg; //create offscreen buffer to test if a point is within shape
 
+  ReactShape(PVector[] vertices) {
+    this.pg = createGraphics(int(2 * maxWidth(vertices)), int(2 * maxHeight(vertices)));
+    println("footprint maxwidth: "+maxWidth(vertices)+ " footprint maxheight: "+maxHeight(vertices));
+    this.pg.colorMode(HSB);
+    this.setShape(vertices); 
+  }
+
+  void setShape(PVector[] shapeVertices){
+    this.customShape = createShape();
+    this.offscreenCustomShape = createShape();
+    this.customShape.beginShape();
+    this.offscreenCustomShape.beginShape();
+    for (PVector vect : shapeVertices) {
+      this.customShape.vertex(vect.x, vect.y);
+      this.offscreenCustomShape.vertex(vect.x, vect.y);
+    }
+    this.customShape.noFill();
+    this.offscreenCustomShape.fill(c);
+    this.customShape.stroke(c);
+    this.offscreenCustomShape.stroke(c);
+    this.customShape.endShape(CLOSE);
+    this.offscreenCustomShape.endShape(CLOSE);
+    
+    this.pg.beginDraw();
+    this.pg.background(0);
+    this.pg.stroke(c);
+    this.pg.shape(this.offscreenCustomShape, pg.width/2, pg.height/2);
+    this.pg.endDraw();
+  }
+
+  //return true if point over shape
+  boolean isOverFootprint(PVector point) {
+    boolean result;
+    if (this.pg.get(int(point.x + pg.width/2), int(point.y+pg.height/2)) == c) { //using color(O,O,100) in HSB 
+      result = true;
+    } else {
+      result = false;
+    }
+    return result;
+  }
+
+  //return the closest coordinates inside shape from point using dicotomy, origin must be inside shape
+  PVector getClosestPointInsideShape(PVector point) {
+    PVector pt = point.copy();
+    if (this.isOverFootprint(pt)) return pt;
+    float dicotomy_mag = pt.mag()/2;
+    while (dicotomy_mag >= 1) {  //while pixel diff between point and result > 1 pixel
+      if (this.isOverFootprint(pt)) {
+        pt.setMag(pt.mag()+dicotomy_mag);
+      } else {
+        pt.setMag(pt.mag()-dicotomy_mag);
+      }
+      dicotomy_mag /= 2;
+    }
+    return pt;
+  }
+
+  PVector[] getUpDownLeftRightbounds(PVector point) {
+    PVector[] result=new PVector[4]; //4 vectors : 4 boundaries along +x +y -x -y
+    PVector unitVector = new PVector(1, 0);
+    for (int i=0; i<4; i++) {
+      float dicotomy_mag = max(pg.width/2, pg.height/2);
+      result[i] = point.copy();
+      while (dicotomy_mag > 1) {  //while pixel diff between point and result > 1 pixel
+        if (this.isOverFootprint(result[i])) {
+          result[i].add(unitVector.copy().mult(dicotomy_mag));
+        } else {
+          result[i].sub(unitVector.copy().mult(dicotomy_mag));
+        }
+        dicotomy_mag /= 2;
+      }
+      unitVector.rotate(HALF_PI);
+    }
+    return result;
+  }
+  
+  void drawShape(){
+    strokeWeight(3);
+    stroke(c);
+    this.customShape.setStroke(c);
+    shape(this.customShape);
+  }
+}
+
+class trilaterationContainer{
+  PVector coordinates;
+  float error;
+  trilaterationContainer(PVector avector,float afloat){
+    this.coordinates = avector;
+    this.error = afloat;
+  }
+}
 
 //Compute pod 3d position from cableLengthData measurements and, takes only 3 points and 3 distances
 //from https://en.wikipedia.org/wiki/Trilateration
-PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3) {
-  float r1 = measures[0];
-  float r2 = measures[1];
-  float r3 = measures[2];
+//TODO : write code to manage 1 point 1 distance and 2 points 2 distances
+trilaterationContainer trilateration(float[] radius, PVector[] center) {
+  float error=0;
+  float r1 = radius[0];
+  float r2 = radius[1];
+  float r3 = radius[2];
   PVector P1, P2, P3, P1P2, P1P3 = new PVector();
 
-  P1 = P1P2P3[0].copy();
-  P2 = P1P2P3[1].copy();
-  P3 = P1P2P3[2].copy();
+  P1 = center[0].copy();
+  P2 = center[1].copy();
+  P3 = center[2].copy();
   P1P2 = P2.copy().sub(P1);
   P1P3 = P3.copy().sub(P1);
-
 
   //Compute unit vectors derived from first 3 first pillars coordinates
   PVector Ex = P1P2.copy().div(P1P2.mag());
@@ -30,69 +129,20 @@ PVector podFromcableLengthDataMeasures(float[] measures, PVector[] P1P2P3) {
   PVector result = new PVector();
   float z = 0;
   if (r1*r1 - x*x - y*y >=0 ) {
-    z = - sqrt(r1*r1 - x*x - y*y);
-    result = P1.add(Ex.mult(x)).add(Ey.mult(y)).add(Ez.mult(z));
+    z =  sqrt(r1*r1 - x*x - y*y);
+    result = P1.add(Ex.mult(x)).add(Ey.mult(y)).add(Ez.mult(z)); //there may be an error on z.Ez sign !!!!!!!!!!!!!
   } else {
     //if 3 spheres intersection has no solution, grab closest solution following Al Kashi theoreme 
     //http://kuartin.math.pagesperso-orange.fr/theoremealkashi.htm
+    //error from closest solution is stored in error
+    error = sqrt(-r1*r1 + x*x + y*y);
     float cosalpha = (sq(d)-sq(r2)+sq(r1))/(2*r1*d);
     cosalpha = max(min(cosalpha, 1), -1); //ensure unique cosalpha solution by caping cosalpha between -1 and 1, appears when r1 & r2 cableLengthData cross each others
     float sinalpha = sqrt(1 - sq(cosalpha));
     result = P1.add(Ex.mult(cosalpha*r1).add(Ey.mult(sinalpha*r1)));
   }
-  return result;
-}
-
-//returns shorten float array by index
-float[] shortenByIndex(float[] src, int index) {
-  int n = src.length;
-  float[] result;
-
-  if (index == 0) {
-    result = subset(src, 1);
-  } else if (index == n-1) {
-    result = subset(src, 0, index);
-  } else {
-    float[] before = subset(src, 0, index);
-    float[] after= subset(src, index+1, n-1 - index);
-    result = concat(before, after);
-  }
-  return result;
-}
-
-PVector[] shortenByIndex(PVector[] src, int index) {
-  int n = src.length;
-  PVector[] result;
-
-  if (index == 0) {
-    result = (PVector[]) subset(src, 1);
-  } else if (index == n-1) {
-    result = (PVector[]) subset(src, 0, index);
-  } else {
-    PVector[] before = (PVector[]) subset(src, 0, index);
-    PVector[] after= (PVector[]) subset(src, index+1, n-1 - index);
-    result = (PVector[]) concat(before, after);
-  }
-  return result;
-}
-
-//returns distance between an array and another
-float[] absDiffArray(float[] firstArray, float[] secondArray) {
-  int n = firstArray.length;
-  float[] resultarray = new float[n];
-  for (int i=0; i<n; i++) {
-    resultarray[i]=abs(firstArray[i]-secondArray[i]);
-  }
-  return resultarray;
-}
-
-//returns sum of array of floats
-float sumFloatArray(float[] anArray) {
-  float result = 0;
-  for (int i=0; i<anArray.length; i++) {
-    result += anArray[i];
-  }
-  return result;
+  trilaterationContainer container = new trilaterationContainer(result, error);
+  return container;
 }
 
 //returns mean vector of a PVector array
@@ -105,18 +155,8 @@ PVector pvectorMean(PVector[] vector_array) {
   return result;
 }
 
-float stdDeviation(float[] src) {
-  float mean = sumFloatArray(src)/src.length;
-  float standard_deviation = 0;
-  for (int i=0; i<src.length; i++) {
-    standard_deviation += sq(src[i]-mean);
-  }
-  standard_deviation /= src.length - 1;
-  standard_deviation = sqrt(standard_deviation);
-  return standard_deviation;
-}
-
 //center vector array aouround x & y mean vector
+//TODO : should be part of cablebot class
 void centerVectorArray(PVector[] vector_array) {
   PVector mean = pvectorMean(vector_array);
   mean.z=0;
@@ -126,16 +166,15 @@ void centerVectorArray(PVector[] vector_array) {
 }
 
 //align and center a set of PVector according to the first edge along x axis
+//TODO : should be part of cablebot class
 void alignAccordingToFstEdge(PVector[] vector_to_align) {
   centerVectorArray(vector_to_align);
-
   PVector Ex = new PVector(1, 0);
   PVector axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
-  float angle = PVector.angleBetween(axis_to_align, Ex);
+  float angle = PVector.angleBetween(axis_to_align, Ex) - PI;
   for (PVector vect : vector_to_align) {
-    vect.rotate(-angle);
+    vect.rotate(angle);
   }
-  axis_to_align = vector_to_align[1].copy().sub(vector_to_align[0]);
 }
 
 //returns max over z coordinates of PVector array
@@ -175,40 +214,20 @@ float maxFloatValue(float[] float_array) {
   return result;
 }
 
-//return an array of n random angles arranged and sorted from 0 to TWO_PI
-float[] randomAngles(int n) {
-  float[] angle_array = new float[n];
-  float sum_array = 0;
-  for (int i = 0; i<n; i++) {
-    angle_array[i] = 1 + random(1);
-    sum_array += angle_array[i];
-  }
-  for (int i = 0; i<n; i++) {
-    angle_array[i] /= sum_array;
-    angle_array[i] *= TWO_PI;
-    angle_array[i] -= angle_array[0];
-    if (i>0)angle_array[i]+=angle_array[i-1];
-  }
-  printArray(angle_array);
-  return angle_array;
+
+//TODO test cycle functions
+void cycleFloatArray(float[] anArray){
+  float lastvalue = anArray[anArray.length-1];
+  anArray = shorten(anArray);
+  anArray = reverse(anArray);
+  anArray = append(anArray,lastvalue);
+  anArray = reverse(anArray);
 }
 
-//return vector array of n random vectors (constant height z, radius: mean & std) sorted by angle 
-PVector[] randomVect(int n, float z, float mean, float std_dev) {
-  PVector[] vector_array = new PVector[0]; //length of pillars must be >= 4
-  float[] angle_array = randomAngles(n);
-  for (int i=0; i<n; i++) {
-    vector_array = (PVector[]) append(vector_array, new PVector());
-    vector_array[i] = PVector.fromAngle(angle_array[i]); //vector_array[i] = PVector.fromAngle(TWO_PI * i/n);
-    vector_array[i].mult(random(mean*std_dev)+mean*(1-std_dev));
-    vector_array[i].add(new PVector(0, 0, z));
-  }
-  return vector_array;
-}
-
-void drawCoordinatesOnPlane(PVector vector) {
-  PVector textPosition = new PVector(vector.x, vector.y);
-  textPosition.add(textPosition.copy().normalize().mult(3*TEXT_SIZE));
-  textSize(TEXT_SIZE);
-  text("x="+round(vector.x) +"mm"+ "\n"+"y="+round(vector.y)+"mm", textPosition.x, textPosition.y);
+void cyclePVectArray(PVector[] anArray){
+  PVector lastvalue = anArray[anArray.length-1];
+  anArray = (PVector[]) shorten(anArray);
+  anArray = (PVector[]) reverse(anArray);
+  anArray = (PVector[]) append(anArray,lastvalue);
+  anArray = (PVector[]) reverse(anArray);
 }
